@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trip Planner with Date Picker</title>
+    <title>Complete Trip & Expense Planner</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -21,7 +21,7 @@
         }
         
         .container {
-            max-width: 900px;
+            max-width: 1000px;
             margin: 0 auto;
             background: white;
             border-radius: 20px;
@@ -46,12 +46,61 @@
             gap: 15px;
         }
         
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            overflow-x: auto;
+        }
+        
+        .tab-btn {
+            padding: 18px 25px;
+            border: none;
+            background: none;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .tab-btn:hover {
+            background: #e9ecef;
+        }
+        
+        .tab-btn.active {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+            background: white;
+            font-weight: 600;
+        }
+        
         /* Main Content */
         .main-content {
             padding: 30px;
-            min-height: 500px;
+            min-height: 600px;
         }
         
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Card Styling */
         .card {
             background: #f8f9fa;
             border-radius: 15px;
@@ -72,8 +121,8 @@
         /* Input Groups */
         .input-row {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
             margin-bottom: 20px;
         }
         
@@ -104,7 +153,7 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
         
-        /* Date Picker Container */
+        /* Date Picker */
         .date-container {
             position: relative;
         }
@@ -136,7 +185,6 @@
             background: #764ba2;
         }
         
-        /* Calendar Modal */
         .calendar-modal {
             display: none;
             position: absolute;
@@ -154,11 +202,6 @@
         .calendar-modal.active {
             display: block;
             animation: fadeIn 0.3s ease;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
         }
         
         /* Calendar Styling */
@@ -238,10 +281,6 @@
             font-weight: bold;
         }
         
-        .calendar-day.other-month {
-            color: #ccc;
-        }
-        
         /* Buttons */
         .btn {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -256,7 +295,6 @@
             align-items: center;
             gap: 10px;
             transition: all 0.3s;
-            margin-top: 20px;
         }
         
         .btn:hover {
@@ -264,44 +302,118 @@
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
         }
         
-        /* Date Format Info */
-        .date-format-info {
-            font-size: 0.8rem;
-            color: #666;
-            margin-top: 5px;
+        /* Currency Converter */
+        .converter-box {
+            background: white;
+            border: 3px solid #667eea;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        
+        .converter-box h3 {
+            margin-bottom: 20px;
+            color: #333;
             display: flex;
             align-items: center;
-            gap: 5px;
+            justify-content: center;
+            gap: 10px;
         }
         
-        /* Date Display */
-        .date-display {
-            background: white;
-            border: 2px solid #e9ecef;
-            border-radius: 10px;
-            padding: 15px;
-            margin-top: 20px;
-        }
-        
-        .date-display h3 {
-            color: #555;
-            margin-bottom: 15px;
+        .converter-inputs {
             display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .currency-input {
+            display: flex;
+            flex-direction: column;
             align-items: center;
             gap: 10px;
         }
         
-        .date-item {
-            background: #f8f9fa;
-            padding: 10px 15px;
-            border-radius: 8px;
+        .swap-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .swap-btn:hover {
+            transform: rotate(180deg);
+            background: #764ba2;
+        }
+        
+        .conversion-result {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        /* Checkbox Grid */
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+            margin: 20px 0;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .checkbox-item:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+        
+        .checkbox-item input {
+            margin: 0;
+        }
+        
+        /* List Items */
+        .list {
+            margin-top: 20px;
+        }
+        
+        .list-item {
+            background: white;
+            border-left: 4px solid #667eea;
+            padding: 15px;
             margin-bottom: 10px;
+            border-radius: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         
-        .delete-date {
+        .delete-btn {
             background: #ff6b6b;
             color: white;
             border: none;
@@ -314,9 +426,53 @@
             justify-content: center;
         }
         
+        /* Balance Cards */
+        .balance-summary {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .total-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        
         /* Responsive */
         @media (max-width: 768px) {
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab-btn {
+                justify-content: center;
+            }
+            
             .input-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .checkbox-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .converter-inputs {
+                flex-direction: column;
+            }
+            
+            .swap-btn {
+                transform: rotate(90deg);
+            }
+            
+            .swap-btn:hover {
+                transform: rotate(270deg);
+            }
+            
+            .balance-summary {
                 grid-template-columns: 1fr;
             }
             
@@ -335,148 +491,352 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1><i class="fas fa-calendar-alt"></i> Trip Planner with Date Picker</h1>
-            <p>Choose dates with calendar or type DD/MM/YYYY</p>
+            <h1><i class="fas fa-plane"></i> Complete Trip & Expense Planner</h1>
+            <p>Plan trips, split bills, convert currencies - All in one!</p>
+        </div>
+        
+        <!-- Tabs Navigation -->
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="trip">
+                <i class="fas fa-calendar-alt"></i> Trip Dates
+            </button>
+            <button class="tab-btn" data-tab="people">
+                <i class="fas fa-users"></i> People
+            </button>
+            <button class="tab-btn" data-tab="activities">
+                <i class="fas fa-map-marked-alt"></i> Activities
+            </button>
+            <button class="tab-btn" data-tab="expenses">
+                <i class="fas fa-money-bill-wave"></i> Expenses
+            </button>
+            <button class="tab-btn" data-tab="currency">
+                <i class="fas fa-exchange-alt"></i> Currency
+            </button>
+            <button class="tab-btn" data-tab="balances">
+                <i class="fas fa-scale-balanced"></i> Balances
+            </button>
         </div>
         
         <!-- Main Content -->
         <div class="main-content">
-            <!-- Trip Details Card -->
-            <div class="card">
-                <h2><i class="fas fa-plane"></i> Trip Details</h2>
-                
-                <div class="input-row">
-                    <div class="input-group">
-                        <label for="tripName">Trip Name</label>
-                        <input type="text" id="tripName" placeholder="e.g., Bali Vacation" value="Bali Vacation">
+            <!-- TRIP DATES TAB -->
+            <div id="trip" class="tab-content active">
+                <div class="card">
+                    <h2><i class="fas fa-plane"></i> Trip Details & Dates</h2>
+                    
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label for="tripName">Trip Name</label>
+                            <input type="text" id="tripName" placeholder="e.g., Bali Vacation" value="Bali Vacation">
+                        </div>
+                        <div class="input-group">
+                            <label for="destination">Destination</label>
+                            <input type="text" id="destination" placeholder="Where are you going?" value="Bali, Indonesia">
+                        </div>
                     </div>
-                    <div class="input-group">
-                        <label for="destination">Destination</label>
-                        <input type="text" id="destination" placeholder="Where are you going?" value="Bali, Indonesia">
-                    </div>
-                </div>
-                
-                <!-- Date Range Selection -->
-                <div class="input-row">
-                    <div class="input-group">
-                        <label for="startDate">Start Date</label>
-                        <div class="date-container">
-                            <div class="date-input-container">
-                                <input type="text" id="startDate" 
-                                       class="date-input" 
-                                       placeholder="DD/MM/YYYY"
-                                       pattern="\d{2}/\d{2}/\d{4}"
-                                       title="Please enter date in DD/MM/YYYY format">
-                                <button class="calendar-btn" onclick="toggleCalendar('start')">
-                                    <i class="fas fa-calendar"></i>
-                                </button>
+                    
+                    <!-- Date Range with Calendar -->
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label for="startDate">Start Date</label>
+                            <div class="date-container">
+                                <div class="date-input-container">
+                                    <input type="text" id="startDate" 
+                                           class="date-input" 
+                                           placeholder="DD/MM/YYYY"
+                                           pattern="\d{2}/\d{2}/\d{4}">
+                                    <button class="calendar-btn" onclick="toggleCalendar('start')">
+                                        <i class="fas fa-calendar"></i>
+                                    </button>
+                                </div>
+                                <div class="calendar-modal" id="calendarStart"></div>
                             </div>
-                            <div class="calendar-modal" id="calendarStart">
-                                <!-- Calendar will be inserted here by JavaScript -->
-                            </div>
-                            <div class="date-format-info">
-                                <i class="fas fa-info-circle"></i> Type DD/MM/YYYY or click calendar
+                        </div>
+                        
+                        <div class="input-group">
+                            <label for="endDate">End Date</label>
+                            <div class="date-container">
+                                <div class="date-input-container">
+                                    <input type="text" id="endDate" 
+                                           class="date-input" 
+                                           placeholder="DD/MM/YYYY"
+                                           pattern="\d{2}/\d{2}/\d{4}">
+                                    <button class="calendar-btn" onclick="toggleCalendar('end')">
+                                        <i class="fas fa-calendar"></i>
+                                    </button>
+                                </div>
+                                <div class="calendar-modal" id="calendarEnd"></div>
                             </div>
                         </div>
                     </div>
                     
                     <div class="input-group">
-                        <label for="endDate">End Date</label>
-                        <div class="date-container">
-                            <div class="date-input-container">
-                                <input type="text" id="endDate" 
-                                       class="date-input" 
-                                       placeholder="DD/MM/YYYY"
-                                       pattern="\d{2}/\d{2}/\d{4}"
-                                       title="Please enter date in DD/MM/YYYY format">
-                                <button class="calendar-btn" onclick="toggleCalendar('end')">
-                                    <i class="fas fa-calendar"></i>
-                                </button>
-                            </div>
-                            <div class="calendar-modal" id="calendarEnd">
-                                <!-- Calendar will be inserted here by JavaScript -->
-                            </div>
-                            <div class="date-format-info">
-                                <i class="fas fa-info-circle"></i> Type DD/MM/YYYY or click calendar
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Add Activity Date -->
-                <div class="input-row">
-                    <div class="input-group">
-                        <label for="activityDate">Add Activity Date</label>
-                        <div class="date-container">
-                            <div class="date-input-container">
-                                <input type="text" id="activityDate" 
-                                       class="date-input" 
-                                       placeholder="DD/MM/YYYY"
-                                       pattern="\d{2}/\d{2}/\d{4}">
-                                <button class="calendar-btn" onclick="toggleCalendar('activity')">
-                                    <i class="fas fa-calendar"></i>
-                                </button>
-                            </div>
-                            <div class="calendar-modal" id="calendarActivity">
-                                <!-- Calendar will be inserted here by JavaScript -->
-                            </div>
-                        </div>
-                    </div>
-                    <div class="input-group" style="align-self: flex-end;">
-                        <button onclick="addActivityDate()" class="btn" style="padding: 12px 20px;">
-                            <i class="fas fa-plus"></i> Add Activity
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Activity Dates List -->
-                <div class="date-display" id="activitiesList">
-                    <h3><i class="fas fa-list"></i> Planned Activities</h3>
-                    <div id="activitiesContainer">
-                        <!-- Activities will appear here -->
+                        <label for="tripDescription">Trip Description</label>
+                        <textarea id="tripDescription" rows="3" placeholder="Any notes about the trip...">Beach vacation with friends</textarea>
                     </div>
                 </div>
             </div>
             
-            <!-- Date Format Converter -->
-            <div class="card">
-                <h2><i class="fas fa-exchange-alt"></i> Date Format Converter</h2>
-                
-                <div class="input-row">
-                    <div class="input-group">
-                        <label>Enter Date (Any Format)</label>
-                        <input type="text" id="dateInput" placeholder="e.g., 15/01/2024 or Jan 15, 2024">
+            <!-- PEOPLE TAB -->
+            <div id="people" class="tab-content">
+                <div class="card">
+                    <h2><i class="fas fa-users"></i> Add Trip Participants</h2>
+                    
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label for="personName">Name</label>
+                            <input type="text" id="personName" placeholder="e.g., John">
+                        </div>
+                        <div class="input-group">
+                            <label for="personBudget">Budget</label>
+                            <input type="number" id="personBudget" placeholder="0.00" min="0" step="0.01">
+                        </div>
+                        <div class="input-group">
+                            <label for="personCurrency">Preferred Currency</label>
+                            <select id="personCurrency">
+                                <option value="USD">🇺🇸 USD</option>
+                                <option value="EUR">🇪🇺 EUR</option>
+                                <option value="GBP">🇬🇧 GBP</option>
+                                <option value="JPY">🇯🇵 JPY</option>
+                                <option value="INR">🇮🇳 INR</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="align-self: flex-end;">
+                            <button onclick="addPerson()" class="btn" style="padding: 12px 20px;">
+                                <i class="fas fa-plus"></i> Add
+                            </button>
+                        </div>
                     </div>
+                    
+                    <div id="participantsList">
+                        <h3 style="margin: 25px 0 15px; color: #555;">Trip Participants</h3>
+                        <div id="participantsContainer">
+                            <!-- Participants will appear here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ACTIVITIES TAB -->
+            <div id="activities" class="tab-content">
+                <div class="card">
+                    <h2><i class="fas fa-map-marked-alt"></i> Plan Activities</h2>
+                    
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label for="activityName">Activity Name</label>
+                            <input type="text" id="activityName" placeholder="e.g., Museum Tour">
+                        </div>
+                        <div class="input-group">
+                            <label for="activityDate">Date</label>
+                            <div class="date-container">
+                                <div class="date-input-container">
+                                    <input type="text" id="activityDate" 
+                                           class="date-input" 
+                                           placeholder="DD/MM/YYYY"
+                                           pattern="\d{2}/\d{2}/\d{4}">
+                                    <button class="calendar-btn" onclick="toggleCalendar('activity')">
+                                        <i class="fas fa-calendar"></i>
+                                    </button>
+                                </div>
+                                <div class="calendar-modal" id="calendarActivity"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label for="activityCost">Total Cost</label>
+                            <input type="number" id="activityCost" placeholder="0.00" min="0" step="0.01">
+                        </div>
+                        <div class="input-group">
+                            <label for="activityCurrency">Currency</label>
+                            <select id="activityCurrency">
+                                <option value="USD">🇺🇸 USD</option>
+                                <option value="EUR">🇪🇺 EUR</option>
+                                <option value="GBP">🇬🇧 GBP</option>
+                            </select>
+                        </div>
+                    </div>
+                    
                     <div class="input-group">
-                        <label>Convert To Format</label>
-                        <select id="formatSelect">
-                            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                            <option value="Month D, YYYY">Month D, YYYY</option>
-                            <option value="D Month YYYY">D Month YYYY</option>
+                        <label for="activityDescription">Description</label>
+                        <textarea id="activityDescription" rows="2" placeholder="Details about the activity..."></textarea>
+                    </div>
+                    
+                    <h3 style="margin: 25px 0 15px; color: #555;">Select Participants for this Activity</h3>
+                    <div id="activityParticipantsCheckboxes" class="checkbox-grid">
+                        <!-- Checkboxes will be added here -->
+                    </div>
+                    
+                    <button onclick="addActivity()" class="btn">
+                        <i class="fas fa-calendar-plus"></i> Add Activity
+                    </button>
+                    
+                    <div id="activitiesList">
+                        <h3 style="margin: 30px 0 15px; color: #555;">Planned Activities</h3>
+                        <div id="activitiesContainer">
+                            <!-- Activities will appear here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- EXPENSES TAB -->
+            <div id="expenses" class="tab-content">
+                <div class="card">
+                    <h2><i class="fas fa-money-bill-wave"></i> Add Expenses</h2>
+                    
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label for="expenseName">Description</label>
+                            <input type="text" id="expenseName" placeholder="e.g., Dinner at restaurant">
+                        </div>
+                        <div class="input-group">
+                            <label for="expenseAmount">Amount</label>
+                            <input type="number" id="expenseAmount" placeholder="0.00" min="0" step="0.01">
+                        </div>
+                    </div>
+                    
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label for="expenseCurrency">Currency</label>
+                            <select id="expenseCurrency">
+                                <option value="USD">🇺🇸 USD</option>
+                                <option value="EUR">🇪🇺 EUR</option>
+                                <option value="GBP">🇬🇧 GBP</option>
+                                <option value="JPY">🇯🇵 JPY</option>
+                                <option value="INR">🇮🇳 INR</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="paidBy">Paid By</label>
+                            <select id="paidBy">
+                                <!-- Filled by JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="expenseCategory">Category</label>
+                        <select id="expenseCategory">
+                            <option value="food">🍕 Food & Drinks</option>
+                            <option value="transport">🚗 Transport</option>
+                            <option value="accommodation">🏨 Accommodation</option>
+                            <option value="activities">🎭 Activities</option>
+                            <option value="shopping">🛍️ Shopping</option>
+                            <option value="other">📦 Other</option>
                         </select>
                     </div>
-                </div>
-                
-                <button onclick="convertDateFormat()" class="btn">
-                    <i class="fas fa-sync-alt"></i> Convert Date Format
-                </button>
-                
-                <div id="dateResult" style="margin-top: 20px; padding: 15px; background: white; border-radius: 10px; display: none;">
-                    <h3 style="color: #667eea;">Converted Date:</h3>
-                    <p id="convertedDate" style="font-size: 1.2rem; font-weight: bold; margin-top: 10px;"></p>
+                    
+                    <h3 style="margin: 25px 0 15px; color: #555;">Split Between</h3>
+                    <div id="splitCheckboxes" class="checkbox-grid">
+                        <!-- Checkboxes will be added here -->
+                    </div>
+                    
+                    <button onclick="addExpense()" class="btn">
+                        <i class="fas fa-save"></i> Add Expense
+                    </button>
+                    
+                    <div id="expensesList">
+                        <h3 style="margin: 30px 0 15px; color: #555;">All Expenses</h3>
+                        <div id="expensesContainer">
+                            <!-- Expenses will appear here -->
+                        </div>
+                    </div>
                 </div>
             </div>
             
-            <!-- Trip Summary -->
-            <div class="card">
-                <h2><i class="fas fa-info-circle"></i> Trip Summary</h2>
-                <div id="tripSummary">
-                    <p><strong>Trip:</strong> <span id="summaryName">Bali Vacation</span></p>
-                    <p><strong>Dates:</strong> <span id="summaryDates">No dates selected</span></p>
-                    <p><strong>Duration:</strong> <span id="summaryDuration">0 days</span></p>
-                    <p><strong>Activities:</strong> <span id="summaryActivities">0</span></p>
+            <!-- CURRENCY TAB -->
+            <div id="currency" class="tab-content">
+                <div class="card">
+                    <h2><i class="fas fa-exchange-alt"></i> Currency Converter</h2>
+                    
+                    <div class="converter-box">
+                        <h3><i class="fas fa-globe"></i> Convert Amounts</h3>
+                        
+                        <div class="converter-inputs">
+                            <div class="currency-input">
+                                <label>From</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="number" id="convertFromAmount" value="100" placeholder="Amount" style="width: 150px;">
+                                    <select id="convertFromCurrency" style="width: 120px;">
+                                        <option value="USD">🇺🇸 USD</option>
+                                        <option value="EUR">🇪🇺 EUR</option>
+                                        <option value="GBP">🇬🇧 GBP</option>
+                                        <option value="JPY">🇯🇵 JPY</option>
+                                        <option value="INR">🇮🇳 INR</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <button class="swap-btn" onclick="swapCurrencies()">
+                                <i class="fas fa-exchange-alt"></i>
+                            </button>
+                            
+                            <div class="currency-input">
+                                <label>To</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <select id="convertToCurrency" style="width: 120px;">
+                                        <option value="EUR">🇪🇺 EUR</option>
+                                        <option value="USD">🇺🇸 USD</option>
+                                        <option value="GBP">🇬🇧 GBP</option>
+                                        <option value="JPY">🇯🇵 JPY</option>
+                                        <option value="INR">🇮🇳 INR</option>
+                                    </select>
+                                    <input type="number" id="convertToAmount" placeholder="Result" readonly style="width: 150px; background: #f5f5f5;">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button onclick="convertCurrency()" class="btn" style="margin-top: 20px;">
+                            <i class="fas fa-calculator"></i> Convert
+                        </button>
+                        
+                        <div id="conversionResult" class="conversion-result">
+                            <!-- Result will appear here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- BALANCES TAB -->
+            <div id="balances" class="tab-content">
+                <div class="card">
+                    <h2><i class="fas fa-scale-balanced"></i> Balances & Settlements</h2>
+                    
+                    <div class="balance-summary">
+                        <div class="total-card">
+                            <h3>Total Trip Cost</h3>
+                            <span id="totalCost" style="font-size: 1.5rem; font-weight: bold;">$0.00</span>
+                        </div>
+                        <div class="total-card">
+                            <h3>Total Owed</h3>
+                            <span id="totalOwed" style="font-size: 1.5rem; font-weight: bold;">$0.00</span>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 30px;">
+                        <h3 style="margin-bottom: 20px; color: #555;">
+                            <i class="fas fa-hand-holding-usd"></i> Who Owes Whom
+                        </h3>
+                        <div id="balancesList">
+                            <!-- Balances will appear here -->
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 30px;">
+                        <h3 style="margin-bottom: 20px; color: #555;">
+                            <i class="fas fa-chart-pie"></i> Spending Summary
+                        </h3>
+                        <div id="spendingSummary">
+                            <!-- Spending summary will appear here -->
+                        </div>
+                    </div>
+                    
+                    <button onclick="calculateBalances()" class="btn" style="margin-top: 30px;">
+                        <i class="fas fa-calculator"></i> Calculate All Balances
+                    </button>
                 </div>
             </div>
         </div>
