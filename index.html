@@ -1,53 +1,203 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Simple Expense Tracker</title>
-    <style>
-        body {
-            font-family: Arial;
-            max-width: 600px;
-            margin: 40px auto;
-            padding: 20px;
-        }
-        input, select {
-            padding: 10px;
-            margin: 5px;
-            width: 200px;
-        }
-        button {
-            padding: 10px 20px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-        .expense {
-            background: #f5f5f5;
-            padding: 10px;
-            margin: 10px 0;
-            border-left: 4px solid #4CAF50;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip Planner & Expense Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <h1>💰 Simple Expense Tracker</h1>
-    
-    <h3>Add Expense</h3>
-    <input id="desc" placeholder="What was it?">
-    <input id="amount" type="number" placeholder="Amount ($)">
-    <select id="paidBy">
-        <option>You</option>
-        <option>Friend</option>
-        <option>Partner</option>
-    </select>
-    <button onclick="addExpense()">Add</button>
-    
-    <h3>Expenses</h3>
-    <div id="expenses"></div>
-    
-    <h3>Who Owes What</h3>
-    <div id="balance"></div>
-    
+    <div class="container">
+        <!-- App Header -->
+        <header class="app-header">
+            <h1><i class="fas fa-plane"></i> Trip Planner</h1>
+            <div class="trip-info">
+                <span id="tripName">Bali Trip 2024</span>
+                <span id="totalBalance">$0.00</span>
+            </div>
+        </header>
+
+        <!-- Main Navigation Tabs -->
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="participants">👥 People</button>
+            <button class="tab-btn" data-tab="activities">🗺️ Activities</button>
+            <button class="tab-btn" data-tab="expenses">💰 Expenses</button>
+            <button class="tab-btn" data-tab="balances">⚖️ Balances</button>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- PARTICIPANTS TAB -->
+            <div id="participants" class="tab-content active">
+                <div class="card">
+                    <h2><i class="fas fa-users"></i> Trip Participants</h2>
+                    <div class="input-group">
+                        <input type="text" id="personName" placeholder="Enter name">
+                        <input type="text" id="personBudget" placeholder="Budget (optional)">
+                        <select id="personCurrency">
+                            <option value="USD">USD</option>
+                            <option value="EUR">EUR</option>
+                            <option value="GBP">GBP</option>
+                            <option value="JPY">JPY</option>
+                            <option value="INR">INR</option>
+                        </select>
+                        <button onclick="addPerson()" class="btn-primary">
+                            <i class="fas fa-plus"></i> Add
+                        </button>
+                    </div>
+                    <div id="peopleList" class="list">
+                        <!-- People will appear here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ACTIVITIES TAB -->
+            <div id="activities" class="tab-content">
+                <div class="card">
+                    <h2><i class="fas fa-map-marked-alt"></i> Plan Activities</h2>
+                    <div class="input-group">
+                        <input type="text" id="activityName" placeholder="Activity name">
+                        <input type="number" id="activityCost" placeholder="Total cost">
+                        <select id="activityCurrency">
+                            <option value="USD">USD</option>
+                            <option value="EUR">EUR</option>
+                            <option value="GBP">GBP</option>
+                        </select>
+                        <button onclick="addActivity()" class="btn-primary">
+                            <i class="fas fa-plus"></i> Add Activity
+                        </button>
+                    </div>
+                    
+                    <div class="section">
+                        <h3><i class="fas fa-user-check"></i> Select Participants for this Activity</h3>
+                        <div id="activityParticipants" class="checkbox-grid">
+                            <!-- People checkboxes will appear here -->
+                        </div>
+                    </div>
+                    
+                    <div id="activitiesList" class="list">
+                        <!-- Activities will appear here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- EXPENSES TAB -->
+            <div id="expenses" class="tab-content">
+                <div class="card">
+                    <h2><i class="fas fa-receipt"></i> Add Expense</h2>
+                    <div class="input-group">
+                        <input type="text" id="expenseDesc" placeholder="What was it?">
+                        <input type="number" id="expenseAmount" placeholder="Amount">
+                        <select id="expenseCurrency">
+                            <option value="USD">USD</option>
+                            <option value="EUR">EUR</option>
+                            <option value="GBP">GBP</option>
+                            <option value="JPY">JPY</option>
+                            <option value="INR">INR</option>
+                        </select>
+                        <select id="expensePaidBy">
+                            <!-- Filled by JavaScript -->
+                        </select>
+                    </div>
+                    
+                    <div class="section">
+                        <h3><i class="fas fa-share-alt"></i> Split Between</h3>
+                        <div id="splitParticipants" class="checkbox-grid">
+                            <!-- Checkboxes will appear here -->
+                        </div>
+                        <div class="split-options">
+                            <button onclick="splitEqually()" class="btn-small">
+                                <i class="fas fa-equals"></i> Split Equally
+                            </button>
+                            <button onclick="splitByPercentage()" class="btn-small">
+                                <i class="fas fa-percentage"></i> By Percentage
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <button onclick="addExpense()" class="btn-primary full-width">
+                        <i class="fas fa-save"></i> Save Expense
+                    </button>
+                    
+                    <div id="expensesList" class="list">
+                        <!-- Expenses will appear here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- BALANCES TAB -->
+            <div id="balances" class="tab-content">
+                <div class="card">
+                    <h2><i class="fas fa-scale-balanced"></i> Balances & Settlements</h2>
+                    <div class="balance-summary">
+                        <div class="total-card">
+                            <h3>Total Trip Cost</h3>
+                            <span id="totalCost" class="amount">$0.00</span>
+                        </div>
+                        <div class="total-card">
+                            <h3>Total Owed</h3>
+                            <span id="totalOwed" class="amount">$0.00</span>
+                        </div>
+                    </div>
+                    
+                    <div class="section">
+                        <h3><i class="fas fa-hand-holding-usd"></i> Who Owes Whom</h3>
+                        <div id="balancesList">
+                            <!-- Balances will appear here -->
+                        </div>
+                    </div>
+                    
+                    <div class="section">
+                        <h3><i class="fas fa-chart-pie"></i> Spending by Category</h3>
+                        <div class="category-chart">
+                            <div class="category-bar food">Food & Drinks</div>
+                            <div class="category-bar transport">Transport</div>
+                            <div class="category-bar accommodation">Accommodation</div>
+                            <div class="category-bar activities">Activities</div>
+                            <div class="category-bar other">Other</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Currency Converter -->
+        <div class="converter-card">
+            <h3><i class="fas fa-exchange-alt"></i> Currency Converter</h3>
+            <div class="converter">
+                <input type="number" id="convertAmount" value="100" placeholder="Amount">
+                <select id="convertFrom">
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                    <option value="JPY">JPY</option>
+                    <option value="INR">INR</option>
+                </select>
+                <span class="to-arrow">→</span>
+                <select id="convertTo">
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                    <option value="GBP">GBP</option>
+                    <option value="JPY">JPY</option>
+                    <option value="INR">INR</option>
+                </select>
+                <button onclick="convertCurrency()" class="btn-small">
+                    <i class="fas fa-sync-alt"></i> Convert
+                </button>
+            </div>
+            <div id="conversionResult" class="conversion-result">
+                <!-- Conversion result appears here -->
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <p>Made with <i class="fas fa-heart"></i> for trip planning</p>
+        </footer>
+    </div>
+
+    <!-- JavaScript -->
     <script src="app.js"></script>
 </body>
 </html>
