@@ -1,6 +1,13 @@
 // Global State
 const state = {
-    tripName: "Bali Trip 2024",
+    currentStep: 1,
+    trip: {
+        name: "Bali Vacation",
+        dates: "Jan 15-22, 2024",
+        destination: "Bali, Indonesia",
+        baseCurrency: "USD",
+        description: "Beach vacation with friends"
+    },
     participants: [],
     activities: [],
     expenses: [],
@@ -9,76 +16,112 @@ const state = {
         EUR: 0.85,
         GBP: 0.73,
         JPY: 110.5,
-        INR: 74.3
+        INR: 74.3,
+        AUD: 1.35,
+        CAD: 1.25,
+        SGD: 1.34,
+        MYR: 4.18,
+        THB: 33.5
     }
 };
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', function() {
     loadData();
-    setupTabs();
-    updateUI();
-    setupCurrencyConverter();
+    updateStepDisplay();
+    updateActivityParticipants();
+    updateExpenseForm();
+    updateSummary();
+    
+    // Set today as default date
+    document.getElementById('activityDate').valueAsDate = new Date();
 });
 
-// Tab Navigation
-function setupTabs() {
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const tabId = this.getAttribute('data-tab');
-            
-            // Update active tab button
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            
-            // Show active tab content
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            document.getElementById(tabId).classList.add('active');
-            
-            // Update specific tab data
-            if (tabId === 'activities') updateActivityParticipants();
-            if (tabId === 'expenses') updateExpenseForm();
-        });
+// Step Navigation
+function nextStep() {
+    if (state.currentStep < 5) {
+        state.currentStep++;
+        updateStepDisplay();
+        
+        // Update specific step data when entering
+        if (state.currentStep === 3) updateActivityParticipants();
+        if (state.currentStep === 4) updateExpenseForm();
+        if (state.currentStep === 5) {
+            convertCurrency(); // Auto-convert on entering currency step
+            updateSummary();
+        }
+    }
+}
+
+function prevStep() {
+    if (state.currentStep > 1) {
+        state.currentStep--;
+        updateStepDisplay();
+    }
+}
+
+function updateStepDisplay() {
+    // Update step indicators
+    document.querySelectorAll('.step').forEach(step => {
+        step.classList.remove('active');
+        const stepNum = parseInt(step.dataset.step);
+        if (stepNum === state.currentStep) {
+            step.classList.add('active');
+        } else if (stepNum < state.currentStep) {
+            step.querySelector('.step-number').style.background = '#4CAF50';
+        }
     });
+    
+    // Update step content
+    document.querySelectorAll('.step-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.getElementById(`step${state.currentStep}`).classList.add('active');
+    
+    // Update buttons
+    document.getElementById('prevBtn').disabled = state.currentStep === 1;
+    document.getElementById('nextBtn').innerHTML = state.currentStep === 5 
+        ? 'Finish <i class="fas fa-check"></i>' 
+        : 'Next <i class="fas fa-arrow-right"></i>';
+    
+    saveData();
 }
 
 // Load/Save Data
 function loadData() {
-    const saved = localStorage.getItem('tripPlannerData');
+    const saved = localStorage.getItem('tripData');
     if (saved) {
         const data = JSON.parse(saved);
         Object.assign(state, data);
-    }
-    
-    // Add default participants if empty
-    if (state.participants.length === 0) {
-        state.participants = [
-            { id: 1, name: "You", budget: 1000, currency: "USD" },
-            { id: 2, name: "Friend", budget: 800, currency: "USD" },
-            { id: 3, name: "Partner", budget: 1200, currency: "USD" }
-        ];
+        
+        // Update UI from saved state
+        document.getElementById('tripName').value = state.trip.name;
+        document.getElementById('tripDates').value = state.trip.dates;
+        document.getElementById('destination').value = state.trip.destination;
+        document.getElementById('baseCurrency').value = state.trip.baseCurrency;
+        document.getElementById('tripDescription').value = state.trip.description;
+        
+        updateParticipantsDisplay();
+        updateActivitiesDisplay();
+        updateExpensesDisplay();
     }
 }
 
 function saveData() {
-    localStorage.setItem('tripPlannerData', JSON.stringify(state));
+    // Save trip info
+    state.trip.name = document.getElementById('tripName').value;
+    state.trip.dates = document.getElementById('tripDates').value;
+    state.trip.destination = document.getElementById('destination').value;
+    state.trip.baseCurrency = document.getElementById('baseCurrency').value;
+    state.trip.description = document.getElementById('tripDescription').value;
+    
+    localStorage.setItem('tripData', JSON.stringify(state));
 }
 
-// Update All UI
-function updateUI() {
-    updatePeopleList();
-    updateActivitiesList();
-    updateExpensesList();
-    updateBalances();
-    updateTotalCost();
-}
-
-// PARTICIPANTS FUNCTIONS
-function addPerson() {
+// Participants
+function addParticipant() {
     const name = document.getElementById('personName').value.trim();
-    const budget = document.getElementById('personBudget').value;
+    const budget = parseFloat(document.getElementById('personBudget').value) || 0;
     const currency = document.getElementById('personCurrency').value;
     
     if (!name) {
@@ -89,61 +132,78 @@ function addPerson() {
     const newPerson = {
         id: Date.now(),
         name: name,
-        budget: budget ? parseFloat(budget) : 0,
+        budget: budget,
         currency: currency
     };
     
     state.participants.push(newPerson);
+    updateParticipantsDisplay();
     saveData();
-    updateUI();
     
     // Clear inputs
     document.getElementById('personName').value = '';
     document.getElementById('personBudget').value = '';
 }
 
-function updatePeopleList() {
-    const container = document.getElementById('peopleList');
+function updateParticipantsDisplay() {
+    const container = document.getElementById('participantsContainer');
+    
     if (state.participants.length === 0) {
-        container.innerHTML = '<div class="list-item">No participants added yet.</div>';
+        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px; background: white; border-radius: 10px;">No participants added yet</div>';
         return;
     }
     
     container.innerHTML = state.participants.map(person => `
-        <div class="list-item">
+        <div style="background: white; padding: 15px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #4CAF50;">
             <div>
                 <strong>${person.name}</strong>
-                <div class="small-text">
+                <div style="font-size: 0.9em; color: #666;">
                     Budget: ${formatCurrency(person.budget, person.currency)}
                 </div>
             </div>
-            <button class="delete-btn" onclick="deletePerson(${person.id})">
-                <i class="fas fa-trash"></i>
+            <button onclick="deleteParticipant(${person.id})" style="background: #ff6b6b; color: white; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">
+                <i class="fas fa-times"></i>
             </button>
         </div>
     `).join('');
 }
 
-function deletePerson(id) {
+function deleteParticipant(id) {
     state.participants = state.participants.filter(p => p.id !== id);
+    updateParticipantsDisplay();
     saveData();
-    updateUI();
 }
 
-// ACTIVITIES FUNCTIONS
+// Activities
+function updateActivityParticipants() {
+    const container = document.getElementById('activityParticipantsCheckboxes');
+    
+    if (state.participants.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Add participants in Step 2 first</div>';
+        return;
+    }
+    
+    container.innerHTML = state.participants.map(person => `
+        <label class="checkbox-item">
+            <input type="checkbox" value="${person.id}" checked>
+            ${person.name}
+        </label>
+    `).join('');
+}
+
 function addActivity() {
     const name = document.getElementById('activityName').value.trim();
-    const cost = parseFloat(document.getElementById('activityCost').value);
-    const currency = document.getElementById('activityCurrency').value;
+    const date = document.getElementById('activityDate').value;
+    const description = document.getElementById('activityDescription').value;
     
-    if (!name || !cost) {
-        alert("Please fill all fields");
+    if (!name) {
+        alert("Please enter an activity name");
         return;
     }
     
     // Get selected participants
     const selectedParticipants = [];
-    document.querySelectorAll('#activityParticipants input:checked').forEach(cb => {
+    document.querySelectorAll('#activityParticipantsCheckboxes input:checked').forEach(cb => {
         selectedParticipants.push(parseInt(cb.value));
     });
     
@@ -155,35 +215,26 @@ function addActivity() {
     const newActivity = {
         id: Date.now(),
         name: name,
-        cost: cost,
-        currency: currency,
+        date: date,
+        description: description,
         participantIds: selectedParticipants,
-        costPerPerson: cost / selectedParticipants.length
+        cost: 0 // Will be set when expenses are added
     };
     
     state.activities.push(newActivity);
+    updateActivitiesDisplay();
     saveData();
-    updateUI();
     
     // Clear inputs
     document.getElementById('activityName').value = '';
-    document.getElementById('activityCost').value = '';
+    document.getElementById('activityDescription').value = '';
 }
 
-function updateActivityParticipants() {
-    const container = document.getElementById('activityParticipants');
-    container.innerHTML = state.participants.map(person => `
-        <label class="checkbox-item">
-            <input type="checkbox" value="${person.id}" checked>
-            ${person.name}
-        </label>
-    `).join('');
-}
-
-function updateActivitiesList() {
-    const container = document.getElementById('activitiesList');
+function updateActivitiesDisplay() {
+    const container = document.getElementById('activitiesContainer');
+    
     if (state.activities.length === 0) {
-        container.innerHTML = '<div class="list-item">No activities planned yet.</div>';
+        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px; background: white; border-radius: 10px;">No activities planned yet</div>';
         return;
     }
     
@@ -194,20 +245,22 @@ function updateActivitiesList() {
         }).join(', ');
         
         return `
-            <div class="list-item">
-                <div>
-                    <strong>${activity.name}</strong>
-                    <div class="small-text">
-                        Cost: ${formatCurrency(activity.cost, activity.currency)} 
-                        | ${formatCurrency(activity.costPerPerson, activity.currency)} per person
+            <div style="background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid #2196F3;">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div>
+                        <strong>${activity.name}</strong>
+                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                            <i class="far fa-calendar"></i> ${activity.date}
+                        </div>
+                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                            <i class="fas fa-users"></i> ${participants}
+                        </div>
+                        ${activity.description ? `<div style="font-size: 0.9em; color: #777; margin-top: 5px;">${activity.description}</div>` : ''}
                     </div>
-                    <div class="small-text">
-                        Participants: ${participants}
-                    </div>
+                    <button onclick="deleteActivity(${activity.id})" style="background: #ff6b6b; color: white; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
-                <button class="delete-btn" onclick="deleteActivity(${activity.id})">
-                    <i class="fas fa-trash"></i>
-                </button>
             </div>
         `;
     }).join('');
@@ -215,43 +268,49 @@ function updateActivitiesList() {
 
 function deleteActivity(id) {
     state.activities = state.activities.filter(a => a.id !== id);
+    updateActivitiesDisplay();
     saveData();
-    updateUI();
 }
 
-// EXPENSES FUNCTIONS
+// Expenses
 function updateExpenseForm() {
-    const paidBySelect = document.getElementById('expensePaidBy');
-    const splitContainer = document.getElementById('splitParticipants');
+    const paidBySelect = document.getElementById('paidBy');
+    const splitContainer = document.getElementById('splitCheckboxes');
     
     // Update "Paid By" dropdown
-    paidBySelect.innerHTML = state.participants.map(p => 
-        `<option value="${p.id}">${p.name}</option>`
-    ).join('');
+    paidBySelect.innerHTML = '<option value="">Select who paid</option>' + 
+        state.participants.map(p => 
+            `<option value="${p.id}">${p.name}</option>`
+        ).join('');
     
     // Update split checkboxes
-    splitContainer.innerHTML = state.participants.map(p => `
-        <label class="checkbox-item">
-            <input type="checkbox" value="${p.id}" checked>
-            ${p.name}
-        </label>
-    `).join('');
+    if (state.participants.length === 0) {
+        splitContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Add participants first</div>';
+    } else {
+        splitContainer.innerHTML = state.participants.map(p => `
+            <label class="checkbox-item">
+                <input type="checkbox" value="${p.id}" checked>
+                ${p.name}
+            </label>
+        `).join('');
+    }
 }
 
 function addExpense() {
-    const desc = document.getElementById('expenseDesc').value.trim();
+    const name = document.getElementById('expenseName').value.trim();
     const amount = parseFloat(document.getElementById('expenseAmount').value);
     const currency = document.getElementById('expenseCurrency').value;
-    const paidById = parseInt(document.getElementById('expensePaidBy').value);
+    const paidById = parseInt(document.getElementById('paidBy').value);
+    const category = document.getElementById('expenseCategory').value;
     
-    if (!desc || !amount) {
-        alert("Please fill all fields");
+    if (!name || !amount || !paidById) {
+        alert("Please fill all required fields");
         return;
     }
     
     // Get selected participants for splitting
     const splitBetween = [];
-    document.querySelectorAll('#splitParticipants input:checked').forEach(cb => {
+    document.querySelectorAll('#splitCheckboxes input:checked').forEach(cb => {
         splitBetween.push(parseInt(cb.value));
     });
     
@@ -262,60 +321,63 @@ function addExpense() {
     
     const newExpense = {
         id: Date.now(),
-        description: desc,
+        name: name,
         amount: amount,
         currency: currency,
         paidById: paidById,
+        category: category,
         splitBetween: splitBetween,
-        date: new Date().toLocaleDateString(),
-        category: 'other'
+        date: new Date().toLocaleDateString()
     };
     
     state.expenses.push(newExpense);
+    updateExpensesDisplay();
     saveData();
-    updateUI();
     
     // Clear inputs
-    document.getElementById('expenseDesc').value = '';
+    document.getElementById('expenseName').value = '';
     document.getElementById('expenseAmount').value = '';
 }
 
-function splitEqually() {
-    // All checkboxes will be checked by default already
-    alert("Splitting equally between selected participants");
-}
-
-function splitByPercentage() {
-    alert("Percentage split feature coming soon!");
-}
-
-function updateExpensesList() {
-    const container = document.getElementById('expensesList');
+function updateExpensesDisplay() {
+    const container = document.getElementById('expensesContainer');
+    
     if (state.expenses.length === 0) {
-        container.innerHTML = '<div class="list-item">No expenses added yet.</div>';
+        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px; background: white; border-radius: 10px;">No expenses added yet</div>';
         return;
     }
     
     container.innerHTML = state.expenses.map(expense => {
         const paidBy = state.participants.find(p => p.id === expense.paidById)?.name || 'Unknown';
         const splitCount = expense.splitBetween.length;
+        const share = expense.amount / splitCount;
+        
+        const categoryIcons = {
+            food: '🍕',
+            transport: '🚗',
+            accommodation: '🏨',
+            activities: '🎭',
+            shopping: '🛍️',
+            other: '📦'
+        };
         
         return `
-            <div class="list-item">
-                <div>
-                    <strong>${expense.description}</strong>
-                    <div class="small-text">
-                        ${formatCurrency(expense.amount, expense.currency)} 
-                        | Paid by: ${paidBy}
+            <div style="background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid #FF9800;">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div>
+                        <strong>${categoryIcons[expense.category] || '📦'} ${expense.name}</strong>
+                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                            ${formatCurrency(expense.amount, expense.currency)} 
+                            | Paid by: ${paidBy}
+                        </div>
+                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                            Split ${splitCount} ways (${formatCurrency(share, expense.currency)} each)
+                        </div>
                     </div>
-                    <div class="small-text">
-                        Split between ${splitCount} people
-                        (${formatCurrency(expense.amount/splitCount, expense.currency)} each)
-                    </div>
+                    <button onclick="deleteExpense(${expense.id})" style="background: #ff6b6b; color: white; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
-                <button class="delete-btn" onclick="deleteExpense(${expense.id})">
-                    <i class="fas fa-trash"></i>
-                </button>
             </div>
         `;
     }).join('');
@@ -323,113 +385,53 @@ function updateExpensesList() {
 
 function deleteExpense(id) {
     state.expenses = state.expenses.filter(e => e.id !== id);
+    updateExpensesDisplay();
     saveData();
-    updateUI();
 }
 
-// BALANCE CALCULATIONS
-function updateBalances() {
-    const container = document.getElementById('balancesList');
+// Currency Converter
+function swapCurrencies() {
+    const fromCurrency = document.getElementById('convertFromCurrency');
+    const toCurrency = document.getElementById('convertToCurrency');
+    const fromAmount = document.getElementById('convertFromAmount');
+    const toAmount = document.getElementById('convertToAmount');
     
-    // Calculate balances in USD for simplicity
-    const balances = {};
-    state.participants.forEach(p => balances[p.id] = 0);
+    // Swap currencies
+    const temp = fromCurrency.value;
+    fromCurrency.value = toCurrency.value;
+    toCurrency.value = temp;
     
-    // Process expenses
-    state.expenses.forEach(expense => {
-        const share = expense.amount / expense.splitBetween.length;
-        const paidById = expense.paidById;
-        
-        // Convert to USD for calculations
-        const amountUSD = convertCurrency(expense.amount, expense.currency, 'USD');
-        const shareUSD = amountUSD / expense.splitBetween.length;
-        
-        balances[paidById] += amountUSD;
-        
-        expense.splitBetween.forEach(pid => {
-            if (pid !== paidById) {
-                balances[pid] -= shareUSD;
-            }
-        });
-    });
+    // Swap amounts if toAmount has value
+    if (toAmount.value) {
+        const tempAmount = fromAmount.value;
+        fromAmount.value = toAmount.value;
+        toAmount.value = tempAmount;
+    }
     
-    // Process activities
-    state.activities.forEach(activity => {
-        const share = activity.costPerPerson;
-        const shareUSD = convertCurrency(share, activity.currency, 'USD');
-        
-        activity.participantIds.forEach(pid => {
-            balances[pid] -= shareUSD;
-        });
-    });
-    
-    // Display balances
-    let html = '';
-    state.participants.forEach(person => {
-        const balance = balances[person.id];
-        const balanceInPersonCurrency = convertCurrency(balance, 'USD', person.currency);
-        
-        html += `
-            <div class="list-item">
-                <strong>${person.name}</strong>
-                <span class="${balance >= 0 ? 'positive' : 'negative'}">
-                    ${balance >= 0 ? 'Gets' : 'Owes'} 
-                    ${formatCurrency(Math.abs(balanceInPersonCurrency), person.currency)}
-                </span>
-            </div>
-        `;
-    });
-    
-    container.innerHTML = html || '<div class="list-item">No balances to calculate yet.</div>';
-    
-    // Update total owed
-    const totalOwed = Object.values(balances)
-        .filter(b => b < 0)
-        .reduce((sum, b) => sum + Math.abs(b), 0);
-    
-    document.getElementById('totalOwed').textContent = formatCurrency(totalOwed, 'USD');
-}
-
-function updateTotalCost() {
-    let total = 0;
-    
-    // Add all expenses in USD
-    state.expenses.forEach(exp => {
-        total += convertCurrency(exp.amount, exp.currency, 'USD');
-    });
-    
-    // Add all activities in USD
-    state.activities.forEach(act => {
-        total += convertCurrency(act.cost, act.currency, 'USD');
-    });
-    
-    document.getElementById('totalCost').textContent = formatCurrency(total, 'USD');
-    document.getElementById('totalBalance').textContent = formatCurrency(total, 'USD');
-}
-
-// CURRENCY FUNCTIONS
-function setupCurrencyConverter() {
-    // Set default values
-    document.getElementById('convertAmount').value = '100';
+    convertCurrency();
 }
 
 function convertCurrency() {
-    const amount = parseFloat(document.getElementById('convertAmount').value);
-    const from = document.getElementById('convertFrom').value;
-    const to = document.getElementById('convertTo').value;
+    const amount = parseFloat(document.getElementById('convertFromAmount').value);
+    const fromCurrency = document.getElementById('convertFromCurrency').value;
+    const toCurrency = document.getElementById('convertToCurrency').value;
     
     if (!amount || amount <= 0) {
-        alert("Please enter a valid amount");
+        document.getElementById('conversionResult').style.display = 'none';
+        document.getElementById('convertToAmount').value = '';
         return;
     }
     
-    const result = convertCurrencyAmount(amount, from, to);
-    const container = document.getElementById('conversionResult');
+    const result = convertCurrencyAmount(amount, fromCurrency, toCurrency);
     
-    container.innerHTML = `
-        ${formatCurrency(amount, from)} = 
-        <strong>${formatCurrency(result, to)}</strong>
+    document.getElementById('convertToAmount').value = result.toFixed(2);
+    
+    const resultDiv = document.getElementById('conversionResult');
+    resultDiv.innerHTML = `
+        ${formatCurrency(amount, fromCurrency)} = 
+        ${formatCurrency(result, toCurrency)}
     `;
+    resultDiv.style.display = 'block';
 }
 
 function convertCurrencyAmount(amount, fromCurrency, toCurrency) {
@@ -442,10 +444,71 @@ function convertCurrencyAmount(amount, fromCurrency, toCurrency) {
     return parseFloat(result.toFixed(2));
 }
 
-function convertCurrency(amount, fromCurrency, toCurrency) {
-    return convertCurrencyAmount(amount, fromCurrency, toCurrency);
+// Summary
+function updateSummary() {
+    document.getElementById('summaryTripName').textContent = state.trip.name;
+    document.getElementById('summaryDates').textContent = state.trip.dates;
+    document.getElementById('summaryPeople').textContent = state.participants.length;
+    document.getElementById('summaryActivities').textContent = state.activities.length;
+    document.getElementById('summaryExpenses').textContent = state.expenses.length;
+    
+    // Calculate total cost in base currency
+    let totalCost = 0;
+    state.expenses.forEach(exp => {
+        totalCost += convertCurrencyAmount(exp.amount, exp.currency, state.trip.baseCurrency);
+    });
+    
+    document.getElementById('summaryTotalCost').textContent = formatCurrency(totalCost, state.trip.baseCurrency);
 }
 
+function calculateFinalBalances() {
+    if (state.participants.length === 0) {
+        document.getElementById('summaryBalances').innerHTML = '<div style="color: #666;">Add participants first</div>';
+        return;
+    }
+    
+    // Calculate balances in base currency
+    const balances = {};
+    state.participants.forEach(p => balances[p.id] = 0);
+    
+    // Process expenses
+    state.expenses.forEach(expense => {
+        const share = expense.amount / expense.splitBetween.length;
+        const paidById = expense.paidById;
+        
+        // Convert to base currency
+        const amountBase = convertCurrencyAmount(expense.amount, expense.currency, state.trip.baseCurrency);
+        const shareBase = amountBase / expense.splitBetween.length;
+        
+        balances[paidById] += amountBase;
+        
+        expense.splitBetween.forEach(pid => {
+            if (pid !== paidById) {
+                balances[pid] -= shareBase;
+            }
+        });
+    });
+    
+    // Display balances
+    let html = '';
+    state.participants.forEach(person => {
+        const balance = balances[person.id];
+        const balanceInPersonCurrency = convertCurrencyAmount(balance, state.trip.baseCurrency, person.currency);
+        
+        html += `
+            <div style="margin-bottom: 8px; padding: 8px; background: ${balance >= 0 ? '#e8f5e9' : '#ffebee'}; border-radius: 6px;">
+                <strong>${person.name}:</strong>
+                <span style="float: right; color: ${balance >= 0 ? '#4CAF50' : '#f44336'}; font-weight: bold;">
+                    ${balance >= 0 ? '+' : ''}${formatCurrency(balanceInPersonCurrency, person.currency)}
+                </span>
+            </div>
+        `;
+    });
+    
+    document.getElementById('summaryBalances').innerHTML = html || '<div style="color: #666;">No expenses to calculate</div>';
+}
+
+// Helper Functions
 function formatCurrency(amount, currency) {
     if (isNaN(amount)) amount = 0;
     
@@ -454,7 +517,12 @@ function formatCurrency(amount, currency) {
         EUR: '€',
         GBP: '£',
         JPY: '¥',
-        INR: '₹'
+        INR: '₹',
+        AUD: 'A$',
+        CAD: 'C$',
+        SGD: 'S$',
+        MYR: 'RM',
+        THB: '฿'
     };
     
     const symbol = symbols[currency] || currency;
@@ -465,16 +533,3 @@ function formatCurrency(amount, currency) {
     
     return `${symbol}${amount.toFixed(2)}`;
 }
-
-// Helper function for small text
-document.head.insertAdjacentHTML('beforeend', `
-    <style>
-        .small-text {
-            font-size: 0.85rem;
-            color: #666;
-            margin-top: 4px;
-        }
-        .positive { color: #4CAF50; }
-        .negative { color: #f44336; }
-    </style>
-`);
