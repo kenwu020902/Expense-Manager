@@ -1,535 +1,416 @@
 // Global State
 const state = {
-    currentStep: 1,
     trip: {
         name: "Bali Vacation",
-        dates: "Jan 15-22, 2024",
         destination: "Bali, Indonesia",
-        baseCurrency: "USD",
-        description: "Beach vacation with friends"
+        startDate: null,
+        endDate: null
     },
-    participants: [],
     activities: [],
-    expenses: [],
-    exchangeRates: {
-        USD: 1,
-        EUR: 0.85,
-        GBP: 0.73,
-        JPY: 110.5,
-        INR: 74.3,
-        AUD: 1.35,
-        CAD: 1.25,
-        SGD: 1.34,
-        MYR: 4.18,
-        THB: 33.5
+    calendar: {
+        currentDate: new Date(),
+        selectedDate: null,
+        activeCalendar: null // 'start', 'end', or 'activity'
     }
 };
 
-// Initialize App
+// Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
-    loadData();
-    updateStepDisplay();
-    updateActivityParticipants();
-    updateExpenseForm();
-    updateSummary();
-    
-    // Set today as default date
-    document.getElementById('activityDate').valueAsDate = new Date();
+    initializeApp();
 });
 
-// Step Navigation
-function nextStep() {
-    if (state.currentStep < 5) {
-        state.currentStep++;
-        updateStepDisplay();
-        
-        // Update specific step data when entering
-        if (state.currentStep === 3) updateActivityParticipants();
-        if (state.currentStep === 4) updateExpenseForm();
-        if (state.currentStep === 5) {
-            convertCurrency(); // Auto-convert on entering currency step
+function initializeApp() {
+    // Set today's date in inputs
+    const today = new Date();
+    const todayFormatted = formatDate(today, 'DD/MM/YYYY');
+    
+    document.getElementById('startDate').value = todayFormatted;
+    document.getElementById('endDate').value = addDays(today, 7);
+    
+    // Initialize calendars
+    createCalendar('calendarStart', 'start');
+    createCalendar('calendarEnd', 'end');
+    createCalendar('calendarActivity', 'activity');
+    
+    // Add event listeners for manual input
+    document.getElementById('startDate').addEventListener('input', function(e) {
+        const date = parseDateInput(this.value);
+        if (date) {
+            state.trip.startDate = date;
             updateSummary();
         }
-    }
-}
-
-function prevStep() {
-    if (state.currentStep > 1) {
-        state.currentStep--;
-        updateStepDisplay();
-    }
-}
-
-function updateStepDisplay() {
-    // Update step indicators
-    document.querySelectorAll('.step').forEach(step => {
-        step.classList.remove('active');
-        const stepNum = parseInt(step.dataset.step);
-        if (stepNum === state.currentStep) {
-            step.classList.add('active');
-        } else if (stepNum < state.currentStep) {
-            step.querySelector('.step-number').style.background = '#4CAF50';
+    });
+    
+    document.getElementById('endDate').addEventListener('input', function(e) {
+        const date = parseDateInput(this.value);
+        if (date) {
+            state.trip.endDate = date;
+            updateSummary();
         }
     });
     
-    // Update step content
-    document.querySelectorAll('.step-content').forEach(content => {
-        content.classList.remove('active');
+    // Close calendar when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.date-container')) {
+            hideAllCalendars();
+        }
     });
-    document.getElementById(`step${state.currentStep}`).classList.add('active');
     
-    // Update buttons
-    document.getElementById('prevBtn').disabled = state.currentStep === 1;
-    document.getElementById('nextBtn').innerHTML = state.currentStep === 5 
-        ? 'Finish <i class="fas fa-check"></i>' 
-        : 'Next <i class="fas fa-arrow-right"></i>';
-    
-    saveData();
+    updateSummary();
 }
 
-// Load/Save Data
-function loadData() {
-    const saved = localStorage.getItem('tripData');
-    if (saved) {
-        const data = JSON.parse(saved);
-        Object.assign(state, data);
-        
-        // Update UI from saved state
-        document.getElementById('tripName').value = state.trip.name;
-        document.getElementById('tripDates').value = state.trip.dates;
-        document.getElementById('destination').value = state.trip.destination;
-        document.getElementById('baseCurrency').value = state.trip.baseCurrency;
-        document.getElementById('tripDescription').value = state.trip.description;
-        
-        updateParticipantsDisplay();
-        updateActivitiesDisplay();
-        updateExpensesDisplay();
+// Date Formatting Functions
+function formatDate(date, format = 'DD/MM/YYYY') {
+    if (!date) return '';
+    
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    switch(format) {
+        case 'DD/MM/YYYY':
+            return `${day}/${month}/${year}`;
+        case 'MM/DD/YYYY':
+            return `${month}/${day}/${year}`;
+        case 'YYYY-MM-DD':
+            return `${year}-${month}-${day}`;
+        case 'Month D, YYYY':
+            return `${monthNames[date.getMonth()]} ${date.getDate()}, ${year}`;
+        case 'D Month YYYY':
+            return `${date.getDate()} ${monthNames[date.getMonth()]} ${year}`;
+        default:
+            return `${day}/${month}/${year}`;
     }
 }
 
-function saveData() {
-    // Save trip info
-    state.trip.name = document.getElementById('tripName').value;
-    state.trip.dates = document.getElementById('tripDates').value;
-    state.trip.destination = document.getElementById('destination').value;
-    state.trip.baseCurrency = document.getElementById('baseCurrency').value;
-    state.trip.description = document.getElementById('tripDescription').value;
+function parseDateInput(input) {
+    if (!input) return null;
     
-    localStorage.setItem('tripData', JSON.stringify(state));
+    // Try DD/MM/YYYY format
+    let match = input.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+    if (match) {
+        const day = parseInt(match[1]);
+        const month = parseInt(match[2]) - 1;
+        const year = parseInt(match[3]);
+        return new Date(year, month, day);
+    }
+    
+    // Try MM/DD/YYYY format
+    match = input.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+    if (match) {
+        const month = parseInt(match[1]) - 1;
+        const day = parseInt(match[2]);
+        const year = parseInt(match[3]);
+        return new Date(year, month, day);
+    }
+    
+    // Try YYYY-MM-DD format
+    match = input.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+    if (match) {
+        const year = parseInt(match[1]);
+        const month = parseInt(match[2]) - 1;
+        const day = parseInt(match[3]);
+        return new Date(year, month, day);
+    }
+    
+    // Try textual date (e.g., "Jan 15, 2024")
+    const parsed = new Date(input);
+    if (!isNaN(parsed.getTime())) {
+        return parsed;
+    }
+    
+    return null;
 }
 
-// Participants
-function addParticipant() {
-    const name = document.getElementById('personName').value.trim();
-    const budget = parseFloat(document.getElementById('personBudget').value) || 0;
-    const currency = document.getElementById('personCurrency').value;
+function addDays(date, days) {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return formatDate(result, 'DD/MM/YYYY');
+}
+
+// Calendar Functions
+function createCalendar(containerId, type) {
+    const container = document.getElementById(containerId);
+    const today = new Date();
+    const currentDate = new Date(state.calendar.currentDate);
     
-    if (!name) {
-        alert("Please enter a name");
+    container.innerHTML = generateCalendarHTML(currentDate, today, type);
+    
+    // Add click handlers for calendar buttons
+    container.querySelector('.prev-month')?.addEventListener('click', () => {
+        changeMonth(containerId, type, -1);
+    });
+    
+    container.querySelector('.next-month')?.addEventListener('click', () => {
+        changeMonth(containerId, type, 1);
+    });
+}
+
+function generateCalendarHTML(date, today, type) {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    
+    // Get first day of month
+    const firstDay = new Date(year, month, 1);
+    // Get last day of month
+    const lastDay = new Date(year, month + 1, 0);
+    // Get starting day (0 = Sunday, 1 = Monday, etc.)
+    const startDay = firstDay.getDay();
+    
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    let html = `
+        <div class="calendar">
+            <div class="calendar-header">
+                <button class="prev-month"><i class="fas fa-chevron-left"></i></button>
+                <div class="calendar-month-year">${monthNames[month]} ${year}</div>
+                <button class="next-month"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            
+            <div class="calendar-weekdays">
+                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div>
+                <div>Thu</div><div>Fri</div><div>Sat</div>
+            </div>
+            
+            <div class="calendar-days">
+    `;
+    
+    // Empty cells for days before the first of the month
+    for (let i = 0; i < startDay; i++) {
+        html += `<div class="calendar-day empty"></div>`;
+    }
+    
+    // Days of the month
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+        const currentDate = new Date(year, month, day);
+        const isToday = currentDate.toDateString() === today.toDateString();
+        const isSelected = state.calendar.selectedDate && 
+                          currentDate.toDateString() === state.calendar.selectedDate.toDateString();
+        
+        let className = 'calendar-day';
+        if (isToday) className += ' today';
+        if (isSelected) className += ' selected';
+        
+        html += `<div class="${className}" data-date="${formatDate(currentDate, 'YYYY-MM-DD')}">${day}</div>`;
+    }
+    
+    html += `
+            </div>
+        </div>
+    `;
+    
+    return html;
+}
+
+function changeMonth(containerId, type, direction) {
+    const currentDate = new Date(state.calendar.currentDate);
+    currentDate.setMonth(currentDate.getMonth() + direction);
+    state.calendar.currentDate = currentDate;
+    
+    createCalendar(containerId, type);
+    addDayClickHandlers(type);
+}
+
+function addDayClickHandlers(type) {
+    const calendarId = `calendar${type.charAt(0).toUpperCase() + type.slice(1)}`;
+    const container = document.getElementById(calendarId);
+    
+    container.querySelectorAll('.calendar-day:not(.empty)').forEach(day => {
+        day.addEventListener('click', function() {
+            const dateStr = this.getAttribute('data-date');
+            const [year, month, day] = dateStr.split('-').map(Number);
+            const selectedDate = new Date(year, month - 1, day);
+            
+            // Update selected date
+            state.calendar.selectedDate = selectedDate;
+            
+            // Update the input field
+            const inputId = type === 'activity' ? 'activityDate' : `${type}Date`;
+            document.getElementById(inputId).value = formatDate(selectedDate, 'DD/MM/YYYY');
+            
+            // Update state
+            if (type === 'start') {
+                state.trip.startDate = selectedDate;
+            } else if (type === 'end') {
+                state.trip.endDate = selectedDate;
+            }
+            
+            // Re-render calendar to show selection
+            createCalendar(calendarId, type);
+            addDayClickHandlers(type);
+            
+            // Hide calendar
+            hideCalendar(type);
+            
+            // Update summary
+            updateSummary();
+        });
+    });
+}
+
+// Calendar Toggle Functions
+function toggleCalendar(type) {
+    const calendarId = `calendar${type.charAt(0).toUpperCase() + type.slice(1)}`;
+    const calendar = document.getElementById(calendarId);
+    
+    // Hide all calendars first
+    hideAllCalendars();
+    
+    // Show this calendar
+    calendar.classList.add('active');
+    state.calendar.activeCalendar = type;
+    
+    // Add click handlers for days
+    addDayClickHandlers(type);
+}
+
+function hideCalendar(type) {
+    const calendarId = `calendar${type.charAt(0).toUpperCase() + type.slice(1)}`;
+    const calendar = document.getElementById(calendarId);
+    calendar.classList.remove('active');
+}
+
+function hideAllCalendars() {
+    document.querySelectorAll('.calendar-modal').forEach(calendar => {
+        calendar.classList.remove('active');
+    });
+    state.calendar.activeCalendar = null;
+}
+
+// Activity Functions
+function addActivityDate() {
+    const dateInput = document.getElementById('activityDate').value;
+    const date = parseDateInput(dateInput);
+    
+    if (!date) {
+        alert('Please enter a valid date in DD/MM/YYYY format');
         return;
     }
     
-    const newPerson = {
+    const activity = {
         id: Date.now(),
-        name: name,
-        budget: budget,
-        currency: currency
+        date: date,
+        formattedDate: formatDate(date, 'DD/MM/YYYY'),
+        description: `Activity on ${formatDate(date, 'DD/MM/YYYY')}`
     };
     
-    state.participants.push(newPerson);
-    updateParticipantsDisplay();
-    saveData();
+    state.activities.push(activity);
+    updateActivitiesList();
+    updateSummary();
     
-    // Clear inputs
-    document.getElementById('personName').value = '';
-    document.getElementById('personBudget').value = '';
+    // Clear input
+    document.getElementById('activityDate').value = '';
 }
 
-function updateParticipantsDisplay() {
-    const container = document.getElementById('participantsContainer');
+function updateActivitiesList() {
+    const container = document.getElementById('activitiesContainer');
     
-    if (state.participants.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px; background: white; border-radius: 10px;">No participants added yet</div>';
+    if (state.activities.length === 0) {
+        container.innerHTML = '<p style="color: #666; text-align: center;">No activities added yet</p>';
         return;
     }
     
-    container.innerHTML = state.participants.map(person => `
-        <div style="background: white; padding: 15px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #4CAF50;">
+    container.innerHTML = state.activities.map(activity => `
+        <div class="date-item">
             <div>
-                <strong>${person.name}</strong>
-                <div style="font-size: 0.9em; color: #666;">
-                    Budget: ${formatCurrency(person.budget, person.currency)}
-                </div>
+                <strong>${activity.formattedDate}</strong>
+                <div style="font-size: 0.9rem; color: #666;">${activity.description}</div>
             </div>
-            <button onclick="deleteParticipant(${person.id})" style="background: #ff6b6b; color: white; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">
+            <button class="delete-date" onclick="deleteActivity(${activity.id})">
                 <i class="fas fa-times"></i>
             </button>
         </div>
     `).join('');
 }
 
-function deleteParticipant(id) {
-    state.participants = state.participants.filter(p => p.id !== id);
-    updateParticipantsDisplay();
-    saveData();
-}
-
-// Activities
-function updateActivityParticipants() {
-    const container = document.getElementById('activityParticipantsCheckboxes');
-    
-    if (state.participants.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Add participants in Step 2 first</div>';
-        return;
-    }
-    
-    container.innerHTML = state.participants.map(person => `
-        <label class="checkbox-item">
-            <input type="checkbox" value="${person.id}" checked>
-            ${person.name}
-        </label>
-    `).join('');
-}
-
-function addActivity() {
-    const name = document.getElementById('activityName').value.trim();
-    const date = document.getElementById('activityDate').value;
-    const description = document.getElementById('activityDescription').value;
-    
-    if (!name) {
-        alert("Please enter an activity name");
-        return;
-    }
-    
-    // Get selected participants
-    const selectedParticipants = [];
-    document.querySelectorAll('#activityParticipantsCheckboxes input:checked').forEach(cb => {
-        selectedParticipants.push(parseInt(cb.value));
-    });
-    
-    if (selectedParticipants.length === 0) {
-        alert("Please select at least one participant");
-        return;
-    }
-    
-    const newActivity = {
-        id: Date.now(),
-        name: name,
-        date: date,
-        description: description,
-        participantIds: selectedParticipants,
-        cost: 0 // Will be set when expenses are added
-    };
-    
-    state.activities.push(newActivity);
-    updateActivitiesDisplay();
-    saveData();
-    
-    // Clear inputs
-    document.getElementById('activityName').value = '';
-    document.getElementById('activityDescription').value = '';
-}
-
-function updateActivitiesDisplay() {
-    const container = document.getElementById('activitiesContainer');
-    
-    if (state.activities.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px; background: white; border-radius: 10px;">No activities planned yet</div>';
-        return;
-    }
-    
-    container.innerHTML = state.activities.map(activity => {
-        const participants = activity.participantIds.map(id => {
-            const person = state.participants.find(p => p.id === id);
-            return person ? person.name : 'Unknown';
-        }).join(', ');
-        
-        return `
-            <div style="background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid #2196F3;">
-                <div style="display: flex; justify-content: space-between; align-items: start;">
-                    <div>
-                        <strong>${activity.name}</strong>
-                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
-                            <i class="far fa-calendar"></i> ${activity.date}
-                        </div>
-                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
-                            <i class="fas fa-users"></i> ${participants}
-                        </div>
-                        ${activity.description ? `<div style="font-size: 0.9em; color: #777; margin-top: 5px;">${activity.description}</div>` : ''}
-                    </div>
-                    <button onclick="deleteActivity(${activity.id})" style="background: #ff6b6b; color: white; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
 function deleteActivity(id) {
     state.activities = state.activities.filter(a => a.id !== id);
-    updateActivitiesDisplay();
-    saveData();
+    updateActivitiesList();
+    updateSummary();
 }
 
-// Expenses
-function updateExpenseForm() {
-    const paidBySelect = document.getElementById('paidBy');
-    const splitContainer = document.getElementById('splitCheckboxes');
+// Date Format Converter
+function convertDateFormat() {
+    const input = document.getElementById('dateInput').value;
+    const format = document.getElementById('formatSelect').value;
     
-    // Update "Paid By" dropdown
-    paidBySelect.innerHTML = '<option value="">Select who paid</option>' + 
-        state.participants.map(p => 
-            `<option value="${p.id}">${p.name}</option>`
-        ).join('');
+    if (!input) {
+        alert('Please enter a date to convert');
+        return;
+    }
     
-    // Update split checkboxes
-    if (state.participants.length === 0) {
-        splitContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Add participants first</div>';
+    const date = parseDateInput(input);
+    
+    if (!date) {
+        alert('Could not understand the date format. Please try formats like: DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, or "Jan 15, 2024"');
+        return;
+    }
+    
+    const converted = formatDate(date, format);
+    
+    document.getElementById('convertedDate').textContent = converted;
+    document.getElementById('dateResult').style.display = 'block';
+}
+
+// Summary Functions
+function updateSummary() {
+    const tripName = document.getElementById('tripName').value || 'Unnamed Trip';
+    document.getElementById('summaryName').textContent = tripName;
+    
+    // Update dates
+    if (state.trip.startDate && state.trip.endDate) {
+        const start = formatDate(state.trip.startDate, 'DD/MM/YYYY');
+        const end = formatDate(state.trip.endDate, 'DD/MM/YYYY');
+        document.getElementById('summaryDates').textContent = `${start} to ${end}`;
+        
+        // Calculate duration
+        const diffTime = Math.abs(state.trip.endDate - state.trip.startDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        document.getElementById('summaryDuration').textContent = `${diffDays} days`;
     } else {
-        splitContainer.innerHTML = state.participants.map(p => `
-            <label class="checkbox-item">
-                <input type="checkbox" value="${p.id}" checked>
-                ${p.name}
-            </label>
-        `).join('');
+        document.getElementById('summaryDates').textContent = 'No dates selected';
+        document.getElementById('summaryDuration').textContent = '0 days';
     }
+    
+    // Update activities count
+    document.getElementById('summaryActivities').textContent = state.activities.length;
 }
 
-function addExpense() {
-    const name = document.getElementById('expenseName').value.trim();
-    const amount = parseFloat(document.getElementById('expenseAmount').value);
-    const currency = document.getElementById('expenseCurrency').value;
-    const paidById = parseInt(document.getElementById('paidBy').value);
-    const category = document.getElementById('expenseCategory').value;
-    
-    if (!name || !amount || !paidById) {
-        alert("Please fill all required fields");
-        return;
-    }
-    
-    // Get selected participants for splitting
-    const splitBetween = [];
-    document.querySelectorAll('#splitCheckboxes input:checked').forEach(cb => {
-        splitBetween.push(parseInt(cb.value));
-    });
-    
-    if (splitBetween.length === 0) {
-        alert("Please select at least one person to split with");
-        return;
-    }
-    
-    const newExpense = {
-        id: Date.now(),
-        name: name,
-        amount: amount,
-        currency: currency,
-        paidById: paidById,
-        category: category,
-        splitBetween: splitBetween,
-        date: new Date().toLocaleDateString()
+// Export trip data (for debugging)
+function exportTripData() {
+    const data = {
+        trip: state.trip,
+        activities: state.activities,
+        summary: {
+            name: document.getElementById('tripName').value,
+            destination: document.getElementById('destination').value,
+            duration: document.getElementById('summaryDuration').textContent
+        }
     };
     
-    state.expenses.push(newExpense);
-    updateExpensesDisplay();
-    saveData();
-    
-    // Clear inputs
-    document.getElementById('expenseName').value = '';
-    document.getElementById('expenseAmount').value = '';
+    console.log('Trip Data:', data);
+    alert('Trip data logged to console. Check Developer Tools (F12)');
 }
 
-function updateExpensesDisplay() {
-    const container = document.getElementById('expensesContainer');
+// Auto-format date input (as user types)
+document.addEventListener('DOMContentLoaded', function() {
+    const dateInputs = document.querySelectorAll('input[placeholder*="DD/MM/YYYY"]');
     
-    if (state.expenses.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px; background: white; border-radius: 10px;">No expenses added yet</div>';
-        return;
-    }
-    
-    container.innerHTML = state.expenses.map(expense => {
-        const paidBy = state.participants.find(p => p.id === expense.paidById)?.name || 'Unknown';
-        const splitCount = expense.splitBetween.length;
-        const share = expense.amount / splitCount;
-        
-        const categoryIcons = {
-            food: '🍕',
-            transport: '🚗',
-            accommodation: '🏨',
-            activities: '🎭',
-            shopping: '🛍️',
-            other: '📦'
-        };
-        
-        return `
-            <div style="background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid #FF9800;">
-                <div style="display: flex; justify-content: space-between; align-items: start;">
-                    <div>
-                        <strong>${categoryIcons[expense.category] || '📦'} ${expense.name}</strong>
-                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
-                            ${formatCurrency(expense.amount, expense.currency)} 
-                            | Paid by: ${paidBy}
-                        </div>
-                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
-                            Split ${splitCount} ways (${formatCurrency(share, expense.currency)} each)
-                        </div>
-                    </div>
-                    <button onclick="deleteExpense(${expense.id})" style="background: #ff6b6b; color: white; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function deleteExpense(id) {
-    state.expenses = state.expenses.filter(e => e.id !== id);
-    updateExpensesDisplay();
-    saveData();
-}
-
-// Currency Converter
-function swapCurrencies() {
-    const fromCurrency = document.getElementById('convertFromCurrency');
-    const toCurrency = document.getElementById('convertToCurrency');
-    const fromAmount = document.getElementById('convertFromAmount');
-    const toAmount = document.getElementById('convertToAmount');
-    
-    // Swap currencies
-    const temp = fromCurrency.value;
-    fromCurrency.value = toCurrency.value;
-    toCurrency.value = temp;
-    
-    // Swap amounts if toAmount has value
-    if (toAmount.value) {
-        const tempAmount = fromAmount.value;
-        fromAmount.value = toAmount.value;
-        toAmount.value = tempAmount;
-    }
-    
-    convertCurrency();
-}
-
-function convertCurrency() {
-    const amount = parseFloat(document.getElementById('convertFromAmount').value);
-    const fromCurrency = document.getElementById('convertFromCurrency').value;
-    const toCurrency = document.getElementById('convertToCurrency').value;
-    
-    if (!amount || amount <= 0) {
-        document.getElementById('conversionResult').style.display = 'none';
-        document.getElementById('convertToAmount').value = '';
-        return;
-    }
-    
-    const result = convertCurrencyAmount(amount, fromCurrency, toCurrency);
-    
-    document.getElementById('convertToAmount').value = result.toFixed(2);
-    
-    const resultDiv = document.getElementById('conversionResult');
-    resultDiv.innerHTML = `
-        ${formatCurrency(amount, fromCurrency)} = 
-        ${formatCurrency(result, toCurrency)}
-    `;
-    resultDiv.style.display = 'block';
-}
-
-function convertCurrencyAmount(amount, fromCurrency, toCurrency) {
-    if (fromCurrency === toCurrency) return amount;
-    
-    // Convert to USD first, then to target currency
-    const inUSD = amount / state.exchangeRates[fromCurrency];
-    const result = inUSD * state.exchangeRates[toCurrency];
-    
-    return parseFloat(result.toFixed(2));
-}
-
-// Summary
-function updateSummary() {
-    document.getElementById('summaryTripName').textContent = state.trip.name;
-    document.getElementById('summaryDates').textContent = state.trip.dates;
-    document.getElementById('summaryPeople').textContent = state.participants.length;
-    document.getElementById('summaryActivities').textContent = state.activities.length;
-    document.getElementById('summaryExpenses').textContent = state.expenses.length;
-    
-    // Calculate total cost in base currency
-    let totalCost = 0;
-    state.expenses.forEach(exp => {
-        totalCost += convertCurrencyAmount(exp.amount, exp.currency, state.trip.baseCurrency);
-    });
-    
-    document.getElementById('summaryTotalCost').textContent = formatCurrency(totalCost, state.trip.baseCurrency);
-}
-
-function calculateFinalBalances() {
-    if (state.participants.length === 0) {
-        document.getElementById('summaryBalances').innerHTML = '<div style="color: #666;">Add participants first</div>';
-        return;
-    }
-    
-    // Calculate balances in base currency
-    const balances = {};
-    state.participants.forEach(p => balances[p.id] = 0);
-    
-    // Process expenses
-    state.expenses.forEach(expense => {
-        const share = expense.amount / expense.splitBetween.length;
-        const paidById = expense.paidById;
-        
-        // Convert to base currency
-        const amountBase = convertCurrencyAmount(expense.amount, expense.currency, state.trip.baseCurrency);
-        const shareBase = amountBase / expense.splitBetween.length;
-        
-        balances[paidById] += amountBase;
-        
-        expense.splitBetween.forEach(pid => {
-            if (pid !== paidById) {
-                balances[pid] -= shareBase;
+    dateInputs.forEach(input => {
+        input.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            
+            if (value.length > 2) {
+                value = value.substring(0, 2) + '/' + value.substring(2);
             }
+            if (value.length > 5) {
+                value = value.substring(0, 5) + '/' + value.substring(5, 9);
+            }
+            
+            e.target.value = value;
         });
     });
-    
-    // Display balances
-    let html = '';
-    state.participants.forEach(person => {
-        const balance = balances[person.id];
-        const balanceInPersonCurrency = convertCurrencyAmount(balance, state.trip.baseCurrency, person.currency);
-        
-        html += `
-            <div style="margin-bottom: 8px; padding: 8px; background: ${balance >= 0 ? '#e8f5e9' : '#ffebee'}; border-radius: 6px;">
-                <strong>${person.name}:</strong>
-                <span style="float: right; color: ${balance >= 0 ? '#4CAF50' : '#f44336'}; font-weight: bold;">
-                    ${balance >= 0 ? '+' : ''}${formatCurrency(balanceInPersonCurrency, person.currency)}
-                </span>
-            </div>
-        `;
-    });
-    
-    document.getElementById('summaryBalances').innerHTML = html || '<div style="color: #666;">No expenses to calculate</div>';
-}
-
-// Helper Functions
-function formatCurrency(amount, currency) {
-    if (isNaN(amount)) amount = 0;
-    
-    const symbols = {
-        USD: '$',
-        EUR: '€',
-        GBP: '£',
-        JPY: '¥',
-        INR: '₹',
-        AUD: 'A$',
-        CAD: 'C$',
-        SGD: 'S$',
-        MYR: 'RM',
-        THB: '฿'
-    };
-    
-    const symbol = symbols[currency] || currency;
-    
-    if (currency === 'JPY') {
-        return `${symbol}${Math.round(amount)}`;
-    }
-    
-    return `${symbol}${amount.toFixed(2)}`;
-}
+});
