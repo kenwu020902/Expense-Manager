@@ -1,535 +1,738 @@
-// Global State
-const state = {
-    currentStep: 1,
-    trip: {
-        name: "Bali Vacation",
-        dates: "Jan 15-22, 2024",
-        destination: "Bali, Indonesia",
-        baseCurrency: "USD",
-        description: "Beach vacation with friends"
-    },
-    participants: [],
-    activities: [],
-    expenses: [],
-    exchangeRates: {
-        USD: 1,
-        EUR: 0.85,
-        GBP: 0.73,
-        JPY: 110.5,
-        INR: 74.3,
-        AUD: 1.35,
-        CAD: 1.25,
-        SGD: 1.34,
-        MYR: 4.18,
-        THB: 33.5
-    }
-};
-
-// Initialize App
-document.addEventListener('DOMContentLoaded', function() {
-    loadData();
-    updateStepDisplay();
-    updateActivityParticipants();
-    updateExpenseForm();
-    updateSummary();
-    
-    // Set today as default date
-    document.getElementById('activityDate').valueAsDate = new Date();
-});
-
-// Step Navigation
-function nextStep() {
-    if (state.currentStep < 5) {
-        state.currentStep++;
-        updateStepDisplay();
-        
-        // Update specific step data when entering
-        if (state.currentStep === 3) updateActivityParticipants();
-        if (state.currentStep === 4) updateExpenseForm();
-        if (state.currentStep === 5) {
-            convertCurrency(); // Auto-convert on entering currency step
-            updateSummary();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip Planner - All-in-One</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, sans-serif;
         }
-    }
-}
-
-function prevStep() {
-    if (state.currentStep > 1) {
-        state.currentStep--;
-        updateStepDisplay();
-    }
-}
-
-function updateStepDisplay() {
-    // Update step indicators
-    document.querySelectorAll('.step').forEach(step => {
-        step.classList.remove('active');
-        const stepNum = parseInt(step.dataset.step);
-        if (stepNum === state.currentStep) {
-            step.classList.add('active');
-        } else if (stepNum < state.currentStep) {
-            step.querySelector('.step-number').style.background = '#4CAF50';
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
         }
-    });
-    
-    // Update step content
-    document.querySelectorAll('.step-content').forEach(content => {
-        content.classList.remove('active');
-    });
-    document.getElementById(`step${state.currentStep}`).classList.add('active');
-    
-    // Update buttons
-    document.getElementById('prevBtn').disabled = state.currentStep === 1;
-    document.getElementById('nextBtn').innerHTML = state.currentStep === 5 
-        ? 'Finish <i class="fas fa-check"></i>' 
-        : 'Next <i class="fas fa-arrow-right"></i>';
-    
-    saveData();
-}
-
-// Load/Save Data
-function loadData() {
-    const saved = localStorage.getItem('tripData');
-    if (saved) {
-        const data = JSON.parse(saved);
-        Object.assign(state, data);
         
-        // Update UI from saved state
-        document.getElementById('tripName').value = state.trip.name;
-        document.getElementById('tripDates').value = state.trip.dates;
-        document.getElementById('destination').value = state.trip.destination;
-        document.getElementById('baseCurrency').value = state.trip.baseCurrency;
-        document.getElementById('tripDescription').value = state.trip.description;
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
         
-        updateParticipantsDisplay();
-        updateActivitiesDisplay();
-        updateExpensesDisplay();
-    }
-}
-
-function saveData() {
-    // Save trip info
-    state.trip.name = document.getElementById('tripName').value;
-    state.trip.dates = document.getElementById('tripDates').value;
-    state.trip.destination = document.getElementById('destination').value;
-    state.trip.baseCurrency = document.getElementById('baseCurrency').value;
-    state.trip.description = document.getElementById('tripDescription').value;
-    
-    localStorage.setItem('tripData', JSON.stringify(state));
-}
-
-// Participants
-function addParticipant() {
-    const name = document.getElementById('personName').value.trim();
-    const budget = parseFloat(document.getElementById('personBudget').value) || 0;
-    const currency = document.getElementById('personCurrency').value;
-    
-    if (!name) {
-        alert("Please enter a name");
-        return;
-    }
-    
-    const newPerson = {
-        id: Date.now(),
-        name: name,
-        budget: budget,
-        currency: currency
-    };
-    
-    state.participants.push(newPerson);
-    updateParticipantsDisplay();
-    saveData();
-    
-    // Clear inputs
-    document.getElementById('personName').value = '';
-    document.getElementById('personBudget').value = '';
-}
-
-function updateParticipantsDisplay() {
-    const container = document.getElementById('participantsContainer');
-    
-    if (state.participants.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px; background: white; border-radius: 10px;">No participants added yet</div>';
-        return;
-    }
-    
-    container.innerHTML = state.participants.map(person => `
-        <div style="background: white; padding: 15px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #4CAF50;">
-            <div>
-                <strong>${person.name}</strong>
-                <div style="font-size: 0.9em; color: #666;">
-                    Budget: ${formatCurrency(person.budget, person.currency)}
-                </div>
-            </div>
-            <button onclick="deleteParticipant(${person.id})" style="background: #ff6b6b; color: white; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    `).join('');
-}
-
-function deleteParticipant(id) {
-    state.participants = state.participants.filter(p => p.id !== id);
-    updateParticipantsDisplay();
-    saveData();
-}
-
-// Activities
-function updateActivityParticipants() {
-    const container = document.getElementById('activityParticipantsCheckboxes');
-    
-    if (state.participants.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Add participants in Step 2 first</div>';
-        return;
-    }
-    
-    container.innerHTML = state.participants.map(person => `
-        <label class="checkbox-item">
-            <input type="checkbox" value="${person.id}" checked>
-            ${person.name}
-        </label>
-    `).join('');
-}
-
-function addActivity() {
-    const name = document.getElementById('activityName').value.trim();
-    const date = document.getElementById('activityDate').value;
-    const description = document.getElementById('activityDescription').value;
-    
-    if (!name) {
-        alert("Please enter an activity name");
-        return;
-    }
-    
-    // Get selected participants
-    const selectedParticipants = [];
-    document.querySelectorAll('#activityParticipantsCheckboxes input:checked').forEach(cb => {
-        selectedParticipants.push(parseInt(cb.value));
-    });
-    
-    if (selectedParticipants.length === 0) {
-        alert("Please select at least one participant");
-        return;
-    }
-    
-    const newActivity = {
-        id: Date.now(),
-        name: name,
-        date: date,
-        description: description,
-        participantIds: selectedParticipants,
-        cost: 0 // Will be set when expenses are added
-    };
-    
-    state.activities.push(newActivity);
-    updateActivitiesDisplay();
-    saveData();
-    
-    // Clear inputs
-    document.getElementById('activityName').value = '';
-    document.getElementById('activityDescription').value = '';
-}
-
-function updateActivitiesDisplay() {
-    const container = document.getElementById('activitiesContainer');
-    
-    if (state.activities.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px; background: white; border-radius: 10px;">No activities planned yet</div>';
-        return;
-    }
-    
-    container.innerHTML = state.activities.map(activity => {
-        const participants = activity.participantIds.map(id => {
-            const person = state.participants.find(p => p.id === id);
-            return person ? person.name : 'Unknown';
-        }).join(', ');
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
         
-        return `
-            <div style="background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid #2196F3;">
-                <div style="display: flex; justify-content: space-between; align-items: start;">
-                    <div>
-                        <strong>${activity.name}</strong>
-                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
-                            <i class="far fa-calendar"></i> ${activity.date}
-                        </div>
-                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
-                            <i class="fas fa-users"></i> ${participants}
-                        </div>
-                        ${activity.description ? `<div style="font-size: 0.9em; color: #777; margin-top: 5px;">${activity.description}</div>` : ''}
-                    </div>
-                    <button onclick="deleteActivity(${activity.id})" style="background: #ff6b6b; color: white; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function deleteActivity(id) {
-    state.activities = state.activities.filter(a => a.id !== id);
-    updateActivitiesDisplay();
-    saveData();
-}
-
-// Expenses
-function updateExpenseForm() {
-    const paidBySelect = document.getElementById('paidBy');
-    const splitContainer = document.getElementById('splitCheckboxes');
-    
-    // Update "Paid By" dropdown
-    paidBySelect.innerHTML = '<option value="">Select who paid</option>' + 
-        state.participants.map(p => 
-            `<option value="${p.id}">${p.name}</option>`
-        ).join('');
-    
-    // Update split checkboxes
-    if (state.participants.length === 0) {
-        splitContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Add participants first</div>';
-    } else {
-        splitContainer.innerHTML = state.participants.map(p => `
-            <label class="checkbox-item">
-                <input type="checkbox" value="${p.id}" checked>
-                ${p.name}
-            </label>
-        `).join('');
-    }
-}
-
-function addExpense() {
-    const name = document.getElementById('expenseName').value.trim();
-    const amount = parseFloat(document.getElementById('expenseAmount').value);
-    const currency = document.getElementById('expenseCurrency').value;
-    const paidById = parseInt(document.getElementById('paidBy').value);
-    const category = document.getElementById('expenseCategory').value;
-    
-    if (!name || !amount || !paidById) {
-        alert("Please fill all required fields");
-        return;
-    }
-    
-    // Get selected participants for splitting
-    const splitBetween = [];
-    document.querySelectorAll('#splitCheckboxes input:checked').forEach(cb => {
-        splitBetween.push(parseInt(cb.value));
-    });
-    
-    if (splitBetween.length === 0) {
-        alert("Please select at least one person to split with");
-        return;
-    }
-    
-    const newExpense = {
-        id: Date.now(),
-        name: name,
-        amount: amount,
-        currency: currency,
-        paidById: paidById,
-        category: category,
-        splitBetween: splitBetween,
-        date: new Date().toLocaleDateString()
-    };
-    
-    state.expenses.push(newExpense);
-    updateExpensesDisplay();
-    saveData();
-    
-    // Clear inputs
-    document.getElementById('expenseName').value = '';
-    document.getElementById('expenseAmount').value = '';
-}
-
-function updateExpensesDisplay() {
-    const container = document.getElementById('expensesContainer');
-    
-    if (state.expenses.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px; background: white; border-radius: 10px;">No expenses added yet</div>';
-        return;
-    }
-    
-    container.innerHTML = state.expenses.map(expense => {
-        const paidBy = state.participants.find(p => p.id === expense.paidById)?.name || 'Unknown';
-        const splitCount = expense.splitBetween.length;
-        const share = expense.amount / splitCount;
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
         
-        const categoryIcons = {
-            food: '🍕',
-            transport: '🚗',
-            accommodation: '🏨',
-            activities: '🎭',
-            shopping: '🛍️',
-            other: '📦'
-        };
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
         
-        return `
-            <div style="background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid #FF9800;">
-                <div style="display: flex; justify-content: space-between; align-items: start;">
-                    <div>
-                        <strong>${categoryIcons[expense.category] || '📦'} ${expense.name}</strong>
-                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
-                            ${formatCurrency(expense.amount, expense.currency)} 
-                            | Paid by: ${paidBy}
-                        </div>
-                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
-                            Split ${splitCount} ways (${formatCurrency(share, expense.currency)} each)
-                        </div>
-                    </div>
-                    <button onclick="deleteExpense(${expense.id})" style="background: #ff6b6b; color: white; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function deleteExpense(id) {
-    state.expenses = state.expenses.filter(e => e.id !== id);
-    updateExpensesDisplay();
-    saveData();
-}
-
-// Currency Converter
-function swapCurrencies() {
-    const fromCurrency = document.getElementById('convertFromCurrency');
-    const toCurrency = document.getElementById('convertToCurrency');
-    const fromAmount = document.getElementById('convertFromAmount');
-    const toAmount = document.getElementById('convertToAmount');
-    
-    // Swap currencies
-    const temp = fromCurrency.value;
-    fromCurrency.value = toCurrency.value;
-    toCurrency.value = temp;
-    
-    // Swap amounts if toAmount has value
-    if (toAmount.value) {
-        const tempAmount = fromAmount.value;
-        fromAmount.value = toAmount.value;
-        toAmount.value = tempAmount;
-    }
-    
-    convertCurrency();
-}
-
-function convertCurrency() {
-    const amount = parseFloat(document.getElementById('convertFromAmount').value);
-    const fromCurrency = document.getElementById('convertFromCurrency').value;
-    const toCurrency = document.getElementById('convertToCurrency').value;
-    
-    if (!amount || amount <= 0) {
-        document.getElementById('conversionResult').style.display = 'none';
-        document.getElementById('convertToAmount').value = '';
-        return;
-    }
-    
-    const result = convertCurrencyAmount(amount, fromCurrency, toCurrency);
-    
-    document.getElementById('convertToAmount').value = result.toFixed(2);
-    
-    const resultDiv = document.getElementById('conversionResult');
-    resultDiv.innerHTML = `
-        ${formatCurrency(amount, fromCurrency)} = 
-        ${formatCurrency(result, toCurrency)}
-    `;
-    resultDiv.style.display = 'block';
-}
-
-function convertCurrencyAmount(amount, fromCurrency, toCurrency) {
-    if (fromCurrency === toCurrency) return amount;
-    
-    // Convert to USD first, then to target currency
-    const inUSD = amount / state.exchangeRates[fromCurrency];
-    const result = inUSD * state.exchangeRates[toCurrency];
-    
-    return parseFloat(result.toFixed(2));
-}
-
-// Summary
-function updateSummary() {
-    document.getElementById('summaryTripName').textContent = state.trip.name;
-    document.getElementById('summaryDates').textContent = state.trip.dates;
-    document.getElementById('summaryPeople').textContent = state.participants.length;
-    document.getElementById('summaryActivities').textContent = state.activities.length;
-    document.getElementById('summaryExpenses').textContent = state.expenses.length;
-    
-    // Calculate total cost in base currency
-    let totalCost = 0;
-    state.expenses.forEach(exp => {
-        totalCost += convertCurrencyAmount(exp.amount, exp.currency, state.trip.baseCurrency);
-    });
-    
-    document.getElementById('summaryTotalCost').textContent = formatCurrency(totalCost, state.trip.baseCurrency);
-}
-
-function calculateFinalBalances() {
-    if (state.participants.length === 0) {
-        document.getElementById('summaryBalances').innerHTML = '<div style="color: #666;">Add participants first</div>';
-        return;
-    }
-    
-    // Calculate balances in base currency
-    const balances = {};
-    state.participants.forEach(p => balances[p.id] = 0);
-    
-    // Process expenses
-    state.expenses.forEach(expense => {
-        const share = expense.amount / expense.splitBetween.length;
-        const paidById = expense.paidById;
+        /* Progress Steps */
+        .steps {
+            display: flex;
+            justify-content: space-between;
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
         
-        // Convert to base currency
-        const amountBase = convertCurrencyAmount(expense.amount, expense.currency, state.trip.baseCurrency);
-        const shareBase = amountBase / expense.splitBetween.length;
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            position: relative;
+        }
         
-        balances[paidById] += amountBase;
+        .step-number {
+            width: 40px;
+            height: 40px;
+            background: #ddd;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #666;
+            z-index: 2;
+        }
         
-        expense.splitBetween.forEach(pid => {
-            if (pid !== paidById) {
-                balances[pid] -= shareBase;
+        .step.active .step-number {
+            background: #667eea;
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .step-line {
+            position: absolute;
+            top: 20px;
+            left: 60%;
+            right: -40%;
+            height: 3px;
+            background: #ddd;
+            z-index: 1;
+        }
+        
+        .step:last-child .step-line {
+            display: none;
+        }
+        
+        /* Main Content */
+        .main-content {
+            padding: 30px;
+            min-height: 500px;
+        }
+        
+        .step-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .step-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Card Styling */
+        .card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.4rem;
+        }
+        
+        /* Input Groups */
+        .input-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .input-group label {
+            font-weight: 600;
+            color: #555;
+            font-size: 0.95rem;
+        }
+        
+        input, select, textarea {
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: white;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        /* Checkbox Grid */
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+            margin: 20px 0;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .checkbox-item:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+        
+        .checkbox-item input {
+            margin: 0;
+        }
+        
+        /* Buttons */
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+            padding-top: 25px;
+            border-top: 2px solid #e9ecef;
+        }
+        
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+        
+        .btn-prev {
+            background: #f8f9fa;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+        
+        .btn-next {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        /* Currency Converter */
+        .converter-box {
+            background: white;
+            border: 3px solid #667eea;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        
+        .converter-box h3 {
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .converter-inputs {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .currency-input {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .swap-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .swap-btn:hover {
+            transform: rotate(180deg);
+            background: #764ba2;
+        }
+        
+        .conversion-result {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        /* Preview Section */
+        .preview-section {
+            background: #f0f2ff;
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 30px;
+            display: none;
+        }
+        
+        .preview-section.active {
+            display: block;
+        }
+        
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .preview-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+        
+        .preview-card h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .steps {
+                flex-direction: column;
+                gap: 20px;
             }
-        });
-    });
-    
-    // Display balances
-    let html = '';
-    state.participants.forEach(person => {
-        const balance = balances[person.id];
-        const balanceInPersonCurrency = convertCurrencyAmount(balance, state.trip.baseCurrency, person.currency);
+            
+            .step-line {
+                display: none;
+            }
+            
+            .input-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .checkbox-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .converter-inputs {
+                flex-direction: column;
+            }
+            
+            .swap-btn {
+                transform: rotate(90deg);
+            }
+            
+            .swap-btn:hover {
+                transform: rotate(270deg);
+            }
+            
+            .buttons {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
         
-        html += `
-            <div style="margin-bottom: 8px; padding: 8px; background: ${balance >= 0 ? '#e8f5e9' : '#ffebee'}; border-radius: 6px;">
-                <strong>${person.name}:</strong>
-                <span style="float: right; color: ${balance >= 0 ? '#4CAF50' : '#f44336'}; font-weight: bold;">
-                    ${balance >= 0 ? '+' : ''}${formatCurrency(balanceInPersonCurrency, person.currency)}
-                </span>
+        /* Currency Flags */
+        .currency-flag {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+            display: inline-block;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-plane"></i> Smart Trip Planner</h1>
+            <p>Plan • Split • Calculate • Convert</p>
+        </div>
+        
+        <!-- Progress Steps -->
+        <div class="steps">
+            <div class="step active" data-step="1">
+                <div class="step-number">1</div>
+                <span>Itinerary</span>
+                <div class="step-line"></div>
             </div>
-        `;
-    });
+            <div class="step" data-step="2">
+                <div class="step-number">2</div>
+                <span>Participants</span>
+                <div class="step-line"></div>
+            </div>
+            <div class="step" data-step="3">
+                <div class="step-number">3</div>
+                <span>Activities</span>
+                <div class="step-line"></div>
+            </div>
+            <div class="step" data-step="4">
+                <div class="step-number">4</div>
+                <span>Costs</span>
+                <div class="step-line"></div>
+            </div>
+            <div class="step" data-step="5">
+                <div class="step-number">5</div>
+                <span>Currency</span>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- STEP 1: Itinerary -->
+            <div class="step-content active" id="step1">
+                <div class="card">
+                    <h2><i class="fas fa-map-marked-alt"></i> Trip Itinerary</h2>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label for="tripName">Trip Name</label>
+                            <input type="text" id="tripName" placeholder="e.g., Bali Vacation 2024" value="Bali Vacation">
+                        </div>
+                        <div class="input-group">
+                            <label for="tripDates">Dates</label>
+                            <input type="text" id="tripDates" placeholder="e.g., Jan 15-22, 2024" value="Jan 15-22, 2024">
+                        </div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label for="destination">Destination</label>
+                            <input type="text" id="destination" placeholder="Where are you going?" value="Bali, Indonesia">
+                        </div>
+                        <div class="input-group">
+                            <label for="baseCurrency">Base Currency</label>
+                            <select id="baseCurrency">
+                                <option value="USD">🇺🇸 USD - US Dollar</option>
+                                <option value="EUR">🇪🇺 EUR - Euro</option>
+                                <option value="GBP">🇬🇧 GBP - British Pound</option>
+                                <option value="JPY">🇯🇵 JPY - Japanese Yen</option>
+                                <option value="INR">🇮🇳 INR - Indian Rupee</option>
+                                <option value="AUD">🇦🇺 AUD - Australian Dollar</option>
+                                <option value="CAD">🇨🇦 CAD - Canadian Dollar</option>
+                                <option value="SGD">🇸🇬 SGD - Singapore Dollar</option>
+                                <option value="MYR">🇲🇾 MYR - Malaysian Ringgit</option>
+                                <option value="THB">🇹🇭 THB - Thai Baht</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="tripDescription">Trip Description (Optional)</label>
+                        <textarea id="tripDescription" rows="3" placeholder="Any notes about the trip...">Beach vacation with friends</textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- STEP 2: Participants -->
+            <div class="step-content" id="step2">
+                <div class="card">
+                    <h2><i class="fas fa-users"></i> Trip Participants</h2>
+                    <p style="margin-bottom: 20px; color: #666;">Add everyone going on the trip</p>
+                    
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label for="personName">Name</label>
+                            <input type="text" id="personName" placeholder="e.g., John Doe">
+                        </div>
+                        <div class="input-group">
+                            <label for="personBudget">Budget</label>
+                            <input type="number" id="personBudget" placeholder="0.00" min="0" step="0.01">
+                        </div>
+                        <div class="input-group">
+                            <label for="personCurrency">Preferred Currency</label>
+                            <select id="personCurrency">
+                                <option value="USD">🇺🇸 USD</option>
+                                <option value="EUR">🇪🇺 EUR</option>
+                                <option value="GBP">🇬🇧 GBP</option>
+                                <option value="JPY">🇯🇵 JPY</option>
+                                <option value="INR">🇮🇳 INR</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="align-self: flex-end;">
+                            <button onclick="addParticipant()" class="btn" style="background: #4CAF50; color: white; padding: 12px 20px;">
+                                <i class="fas fa-plus"></i> Add
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="participantsList" style="margin-top: 30px;">
+                        <h3 style="margin-bottom: 15px; color: #555;">Added Participants</h3>
+                        <div id="participantsContainer" style="display: grid; gap: 12px;">
+                            <!-- Participants will appear here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- STEP 3: Activities -->
+            <div class="step-content" id="step3">
+                <div class="card">
+                    <h2><i class="fas fa-tasks"></i> Plan Activities</h2>
+                    <p style="margin-bottom: 20px; color: #666;">Add activities and select who participates</p>
+                    
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label for="activityName">Activity Name</label>
+                            <input type="text" id="activityName" placeholder="e.g., Museum Tour">
+                        </div>
+                        <div class="input-group">
+                            <label for="activityDate">Date</label>
+                            <input type="date" id="activityDate">
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="activityDescription">Description (Optional)</label>
+                        <textarea id="activityDescription" rows="2" placeholder="Details about the activity..."></textarea>
+                    </div>
+                    
+                    <h3 style="margin: 25px 0 15px; color: #555;">Select Participants for this Activity</h3>
+                    <div id="activityParticipantsCheckboxes" class="checkbox-grid">
+                        <!-- Checkboxes will be added here by JavaScript -->
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 25px;">
+                        <button onclick="addActivity()" class="btn" style="background: #2196F3; color: white; padding: 12px 30px;">
+                            <i class="fas fa-calendar-plus"></i> Add Activity
+                        </button>
+                    </div>
+                    
+                    <div id="activitiesList" style="margin-top: 30px;">
+                        <h3 style="margin-bottom: 15px; color: #555;">Planned Activities</h3>
+                        <div id="activitiesContainer">
+                            <!-- Activities will appear here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- STEP 4: Costs -->
+            <div class="step-content" id="step4">
+                <div class="card">
+                    <h2><i class="fas fa-money-bill-wave"></i> Add Costs</h2>
+                    
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label for="expenseName">What is it?</label>
+                            <input type="text" id="expenseName" placeholder="e.g., Museum Tickets">
+                        </div>
+                        <div class="input-group">
+                            <label for="expenseAmount">Amount</label>
+                            <input type="number" id="expenseAmount" placeholder="0.00" min="0" step="0.01">
+                        </div>
+                    </div>
+                    
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label for="expenseCurrency">Currency</label>
+                            <select id="expenseCurrency">
+                                <option value="USD">🇺🇸 USD</option>
+                                <option value="EUR">🇪🇺 EUR</option>
+                                <option value="GBP">🇬🇧 GBP</option>
+                                <option value="JPY">🇯🇵 JPY</option>
+                                <option value="INR">🇮🇳 INR</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="paidBy">Paid By</label>
+                            <select id="paidBy">
+                                <!-- Filled by JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="expenseCategory">Category</label>
+                        <select id="expenseCategory">
+                            <option value="food">🍕 Food & Drinks</option>
+                            <option value="transport">🚗 Transport</option>
+                            <option value="accommodation">🏨 Accommodation</option>
+                            <option value="activities">🎭 Activities</option>
+                            <option value="shopping">🛍️ Shopping</option>
+                            <option value="other">📦 Other</option>
+                        </select>
+                    </div>
+                    
+                    <h3 style="margin: 25px 0 15px; color: #555;">Split Between</h3>
+                    <div id="splitCheckboxes" class="checkbox-grid">
+                        <!-- Checkboxes will be added here by JavaScript -->
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 25px;">
+                        <button onclick="addExpense()" class="btn" style="background: #FF9800; color: white; padding: 12px 30px;">
+                            <i class="fas fa-save"></i> Add Expense
+                        </button>
+                    </div>
+                    
+                    <div id="expensesList" style="margin-top: 30px;">
+                        <h3 style="margin-bottom: 15px; color: #555;">All Expenses</h3>
+                        <div id="expensesContainer">
+                            <!-- Expenses will appear here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- STEP 5: Currency & Summary -->
+            <div class="step-content" id="step5">
+                <div class="card">
+                    <h2><i class="fas fa-exchange-alt"></i> Currency Converter</h2>
+                    
+                    <div class="converter-box">
+                        <h3><i class="fas fa-globe"></i> Convert Amounts</h3>
+                        
+                        <div class="converter-inputs">
+                            <div class="currency-input">
+                                <label>From</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="number" id="convertFromAmount" value="100" placeholder="Amount" style="width: 150px;">
+                                    <select id="convertFromCurrency" style="width: 120px;">
+                                        <option value="USD">🇺🇸 USD</option>
+                                        <option value="EUR">🇪🇺 EUR</option>
+                                        <option value="GBP">🇬🇧 GBP</option>
+                                        <option value="JPY">🇯🇵 JPY</option>
+                                        <option value="INR">🇮🇳 INR</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <button class="swap-btn" onclick="swapCurrencies()">
+                                <i class="fas fa-exchange-alt"></i>
+                            </button>
+                            
+                            <div class="currency-input">
+                                <label>To</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <select id="convertToCurrency" style="width: 120px;">
+                                        <option value="EUR">🇪🇺 EUR</option>
+                                        <option value="USD">🇺🇸 USD</option>
+                                        <option value="GBP">🇬🇧 GBP</option>
+                                        <option value="JPY">🇯🇵 JPY</option>
+                                        <option value="INR">🇮🇳 INR</option>
+                                    </select>
+                                    <input type="number" id="convertToAmount" placeholder="Result" readonly style="width: 150px; background: #f5f5f5;">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button onclick="convertCurrency()" class="btn" style="background: #667eea; color: white; margin-top: 20px;">
+                            <i class="fas fa-calculator"></i> Convert
+                        </button>
+                        
+                        <div id="conversionResult" class="conversion-result">
+                            <!-- Result will appear here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Trip Summary -->
+                    <div class="preview-section active" id="tripSummary">
+                        <h3><i class="fas fa-chart-pie"></i> Trip Summary</h3>
+                        
+                        <div class="preview-grid">
+                            <div class="preview-card">
+                                <h4><i class="fas fa-info-circle"></i> Trip Info</h4>
+                                <p><strong>Name:</strong> <span id="summaryTripName">Bali Vacation</span></p>
+                                <p><strong>Dates:</strong> <span id="summaryDates">Jan 15-22, 2024</span></p>
+                                <p><strong>People:</strong> <span id="summaryPeople">0</span></p>
+                            </div>
+                            
+                            <div class="preview-card">
+                                <h4><i class="fas fa-calculator"></i> Totals</h4>
+                                <p><strong>Total Cost:</strong> <span id="summaryTotalCost">$0.00</span></p>
+                                <p><strong>Activities:</strong> <span id="summaryActivities">0</span></p>
+                                <p><strong>Expenses:</strong> <span id="summaryExpenses">0</span></p>
+                            </div>
+                            
+                            <div class="preview-card">
+                                <h4><i class="fas fa-balance-scale"></i> Balances</h4>
+                                <div id="summaryBalances">
+                                    <!-- Balances will appear here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="text-align: center; margin-top: 25px;">
+                            <button onclick="calculateFinalBalances()" class="btn" style="background: #9C27B0; color: white;">
+                                <i class="fas fa-calculator"></i> Calculate Final Balances
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation Buttons -->
+            <div class="buttons">
+                <button class="btn btn-prev" onclick="prevStep()" id="prevBtn">
+                    <i class="fas fa-arrow-left"></i> Previous
+                </button>
+                <button class="btn btn-next" onclick="nextStep()" id="nextBtn">
+                    Next <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
     
-    document.getElementById('summaryBalances').innerHTML = html || '<div style="color: #666;">No expenses to calculate</div>';
-}
-
-// Helper Functions
-function formatCurrency(amount, currency) {
-    if (isNaN(amount)) amount = 0;
-    
-    const symbols = {
-        USD: '$',
-        EUR: '€',
-        GBP: '£',
-        JPY: '¥',
-        INR: '₹',
-        AUD: 'A$',
-        CAD: 'C$',
-        SGD: 'S$',
-        MYR: 'RM',
-        THB: '฿'
-    };
-    
-    const symbol = symbols[currency] || currency;
-    
-    if (currency === 'JPY') {
-        return `${symbol}${Math.round(amount)}`;
-    }
-    
-    return `${symbol}${amount.toFixed(2)}`;
-}
+    <script src="app.js"></script>
+</body>
+</html>
