@@ -1,818 +1,791 @@
-// Global State
-const state = {
-    currentStep: 1,
+// Global state management
+let state = {
     trip: {
-        name: "Bali Vacation",
-        destination: "Bali, Indonesia",
-        startDate: null,
-        endDate: null,
-        description: ""
+        name: '',
+        destination: '',
+        startDate: '',
+        endDate: '',
+        description: '',
+        reminders: []
     },
     participants: [],
-    activities: [], // Only for budget checking, NOT for balances
-    expenses: [], // Only expenses count toward balances
+    activities: [],
+    expenses: [],
     exchangeRates: {
         USD: 1,
         EUR: 0.85,
         GBP: 0.73,
-        JPY: 110.5,
-        INR: 74.3
+        JPY: 110,
+        CAD: 1.25,
+        AUD: 1.35,
+        INR: 74,
+        SGD: 1.35
     }
 };
 
-// ====================
-// INITIALIZE APP
-// ====================
-function initializeApp() {
-    // Set default dates to today and next week
-    const today = new Date();
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 7);
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadFromLocalStorage();
+    updateTripSummary();
+    updateParticipantSelectors();
+    updateRemindersList();
+    updateParticipantsList();
+    updateActivitiesList();
+    updateExpensesList();
+    updateBudgetVisualization();
+    calculateBalances();
+});
+
+// Tab switching
+function switchTab(tabId) {
+    // Update active tab
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.tab === tabId) {
+            tab.classList.add('active');
+        }
+    });
     
-    document.getElementById('startDate').valueAsDate = today;
-    document.getElementById('endDate').valueAsDate = nextWeek;
-    document.getElementById('activityDate').valueAsDate = today;
+    // Update active content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+        if (content.id === tabId) {
+            content.classList.add('active');
+        }
+    });
     
-    // Set trip dates in state
-    state.trip.startDate = today;
-    state.trip.endDate = nextWeek;
-    
-    // Load saved data
-    loadData();
-    
-    // Update displays
-    updateParticipantsDisplay();
-    updateActivityParticipants();
-    updateExpenseForm();
-    
-    saveData();
+    // Update UI elements when switching to specific tabs
+    if (tabId === 'participants') {
+        updateParticipantsList();
+    } else if (tabId === 'itinerary') {
+        updateActivityParticipantsCheckboxes();
+        updateActivitiesList();
+        updateBudgetVisualization();
+    } else if (tabId === 'expenses') {
+        updateExpenseParticipantsCheckboxes();
+        updatePaidBySelect();
+        updateExpensesList();
+    } else if (tabId === 'balances') {
+        calculateBalances();
+    }
 }
 
-// ====================
-// CALENDAR EXPORT FUNCTIONS
-// ====================
-
-function exportToCalendar() {
-    const tripName = document.getElementById('tripName').value || 'My Trip';
-    const destination = document.getElementById('destination').value || '';
-    const startDate = document.getElementById('startDate').value;
-    const endDate = document.getElementById('endDate').value;
-    
-    if (!startDate || !endDate) {
-        alert('Please set both start and end dates first');
-        return;
-    }
-    
-    // Format dates for iCalendar
-    const formatICalDate = (dateString) => {
-        const date = new Date(dateString);
-        return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+// Trip Details Functions
+function saveTripDetails() {
+    state.trip = {
+        name: document.getElementById('trip-name').value,
+        destination: document.getElementById('destination').value,
+        startDate: document.getElementById('start-date').value,
+        endDate: document.getElementById('end-date').value,
+        description: document.getElementById('trip-description').value,
+        reminders: state.trip.reminders
     };
     
-    // Create iCalendar content
-    const icalContent = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//Trip Planner//EN',
-        'BEGIN:VEVENT',
-        `SUMMARY:${tripName}`,
-        `DESCRIPTION:Trip to ${destination}. Planned with Trip Planner App`,
-        `DTSTART:${formatICalDate(startDate)}`,
-        `DTEND:${formatICalDate(endDate)}`,
-        `LOCATION:${destination}`,
-        'END:VEVENT',
-        'END:VCALENDAR'
-    ].join('\r\n');
-    
-    // Create download link
-    const blob = new Blob([icalContent], { type: 'text/calendar;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${tripName.replace(/\s+/g, '_')}_trip.ics`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Show success message
-    document.getElementById('calendarStatus').innerHTML = 
-        '<span style="color: #4CAF50;"><i class="fas fa-check-circle"></i> Calendar file downloaded! Import this .ics file to your calendar app.</span>';
-    
-    // Auto-hide message after 5 seconds
-    setTimeout(() => {
-        document.getElementById('calendarStatus').innerHTML = '';
-    }, 5000);
+    saveToLocalStorage();
+    updateTripSummary();
+    alert('Trip details saved successfully!');
 }
 
-function setupTripReminder() {
-    const startDate = document.getElementById('startDate').value;
-    const tripName = document.getElementById('tripName').value || 'Your Trip';
+function addReminder() {
+    const date = document.getElementById('reminder-date').value;
+    const time = document.getElementById('reminder-time').value;
+    const note = document.getElementById('reminder-note').value;
     
-    if (!startDate) {
-        alert('Please set a start date first');
+    if (!date || !time || !note) {
+        alert('Please fill in all reminder fields');
         return;
     }
     
-    if (!('Notification' in window)) {
-        alert('This browser doesn\'t support notifications');
+    const reminder = {
+        id: Date.now(),
+        date: date,
+        time: time,
+        note: note
+    };
+    
+    state.trip.reminders.push(reminder);
+    updateRemindersList();
+    saveToLocalStorage();
+    
+    // Clear inputs
+    document.getElementById('reminder-date').value = '';
+    document.getElementById('reminder-time').value = '';
+    document.getElementById('reminder-note').value = '';
+}
+
+function addToCalendar() {
+    if (!state.trip.name || !state.trip.startDate || !state.trip.endDate) {
+        alert('Please save trip details first');
         return;
     }
     
-    if (Notification.permission === 'granted') {
-        scheduleReminder();
-    } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(permission => {
-            if (permission === 'granted') {
-                scheduleReminder();
-            }
-        });
-    }
+    // Create Google Calendar link (simplified)
+    const startDate = new Date(state.trip.startDate).toISOString().replace(/-|:|\.\d+/g, '');
+    const endDate = new Date(state.trip.endDate).toISOString().replace(/-|:|\.\d+/g, '');
+    
+    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(state.trip.name)}&dates=${startDate}/${endDate}&details=${encodeURIComponent(state.trip.description)}&location=${encodeURIComponent(state.trip.destination)}`;
+    
+    window.open(calendarUrl, '_blank');
 }
 
-function scheduleReminder() {
-    const startDate = new Date(document.getElementById('startDate').value);
-    const tripName = document.getElementById('tripName').value || 'Your Trip';
-    const now = new Date();
+// Participant Functions
+function addParticipant() {
+    const name = document.getElementById('participant-name').value;
+    const budget = parseFloat(document.getElementById('participant-budget').value);
+    const currency = document.getElementById('participant-currency').value;
     
-    // Calculate when to show notification (1 day before trip)
-    const reminderTime = new Date(startDate);
-    reminderTime.setDate(reminderTime.getDate() - 1);
-    reminderTime.setHours(9, 0, 0); // 9 AM day before
-    
-    const timeUntilReminder = reminderTime - now;
-    
-    if (timeUntilReminder > 0) {
-        setTimeout(() => {
-            new Notification('Trip Reminder!', {
-                body: `Don't forget: ${tripName} starts tomorrow!`,
-                icon: 'https://cdn-icons-png.flaticon.com/512/2907/2907972.png',
-                tag: 'trip-reminder'
-            });
-        }, timeUntilReminder);
-        
-        document.getElementById('calendarStatus').innerHTML = 
-            `<span style="color: #4CAF50;">
-                <i class="fas fa-check-circle"></i> Reminder set! You'll get a notification 1 day before your trip.
-            </span>`;
-    } else {
-        document.getElementById('calendarStatus').innerHTML = 
-            `<span style="color: #FF9800;">
-                <i class="fas fa-info-circle"></i> Trip is too soon for a reminder. You'll get a notification next time!
-            </span>`;
-    }
-}
-
-// ====================
-// STEP NAVIGATION
-// ====================
-function nextStep() {
-    if (state.currentStep < 5) {
-        state.currentStep++;
-        updateStepDisplay();
-        
-        // Update specific step when entering
-        if (state.currentStep === 3) updateActivityParticipants();
-        if (state.currentStep === 4) updateExpenseForm();
-        if (state.currentStep === 5) calculateFinalBalances();
-    }
-}
-
-function prevStep() {
-    if (state.currentStep > 1) {
-        state.currentStep--;
-        updateStepDisplay();
-    }
-}
-
-function updateStepDisplay() {
-    // Update step indicators
-    document.querySelectorAll('.step').forEach(step => {
-        step.classList.remove('active');
-        const stepNum = parseInt(step.dataset.step);
-        if (stepNum === state.currentStep) {
-            step.classList.add('active');
-        } else if (stepNum < state.currentStep) {
-            step.querySelector('.step-number').style.background = '#4CAF50';
-        }
-    });
-    
-    // Update step content
-    document.querySelectorAll('.step-content').forEach(content => {
-        content.classList.remove('active');
-    });
-    document.getElementById(`step${state.currentStep}`).classList.add('active');
-    
-    // Update buttons
-    document.getElementById('prevBtn').disabled = state.currentStep === 1;
-    document.getElementById('nextBtn').innerHTML = state.currentStep === 5 
-        ? 'Finish <i class="fas fa-check"></i>' 
-        : 'Next Step <i class="fas fa-arrow-right"></i>';
-    
-    saveData();
-}
-
-// ====================
-// LOAD/SAVE DATA
-// ====================
-function loadData() {
-    const saved = localStorage.getItem('tripPlannerSimple');
-    if (saved) {
-        const data = JSON.parse(saved);
-        
-        // Restore dates
-        if (data.trip.startDate) data.trip.startDate = new Date(data.trip.startDate);
-        if (data.trip.endDate) data.trip.endDate = new Date(data.trip.endDate);
-        if (data.activities) {
-            data.activities.forEach(activity => {
-                if (activity.date) activity.date = new Date(activity.date);
-            });
-        }
-        if (data.expenses) {
-            data.expenses.forEach(expense => {
-                if (expense.date) expense.date = new Date(expense.date);
-            });
-        }
-        
-        Object.assign(state, data);
-        
-        // Update UI from saved state
-        if (state.trip.name) document.getElementById('tripName').value = state.trip.name;
-        if (state.trip.destination) document.getElementById('destination').value = state.trip.destination;
-        if (state.trip.description) document.getElementById('tripDescription').value = state.trip.description;
-        
-        if (state.trip.startDate) document.getElementById('startDate').valueAsDate = state.trip.startDate;
-        if (state.trip.endDate) document.getElementById('endDate').valueAsDate = state.trip.endDate;
-        
-        updateParticipantsDisplay();
-        updateActivitiesDisplay();
-        updateExpensesDisplay();
-    }
-}
-
-function saveData() {
-    // Save trip info
-    state.trip.name = document.getElementById('tripName').value;
-    state.trip.destination = document.getElementById('destination').value;
-    state.trip.description = document.getElementById('tripDescription').value;
-    
-    const startDateInput = document.getElementById('startDate').value;
-    const endDateInput = document.getElementById('endDate').value;
-    
-    if (startDateInput) state.trip.startDate = new Date(startDateInput);
-    if (endDateInput) state.trip.endDate = new Date(endDateInput);
-    
-    localStorage.setItem('tripPlannerSimple', JSON.stringify(state));
-}
-
-// ====================
-// PARTICIPANTS
-// ====================
-function addPerson() {
-    const name = document.getElementById('personName').value.trim();
-    const budget = parseFloat(document.getElementById('personBudget').value) || 0;
-    const currency = document.getElementById('personCurrency').value;
-    
-    if (!name) {
-        alert("Please enter a name");
+    if (!name || isNaN(budget) || budget <= 0) {
+        alert('Please enter valid participant details');
         return;
     }
     
-    const newPerson = {
+    const participant = {
         id: Date.now(),
         name: name,
         budget: budget,
         currency: currency,
-        spent: 0 // Track how much they've spent
+        remainingBudget: budget,
+        spent: 0,
+        color: getRandomColor()
     };
     
-    state.participants.push(newPerson);
-    updateParticipantsDisplay();
-    saveData();
+    state.participants.push(participant);
+    updateParticipantsList();
+    updateParticipantSelectors();
+    updateBudgetVisualization();
+    saveToLocalStorage();
     
     // Clear inputs
-    document.getElementById('personName').value = '';
-    document.getElementById('personBudget').value = '';
+    document.getElementById('participant-name').value = '';
+    document.getElementById('participant-budget').value = '';
 }
 
-function updateParticipantsDisplay() {
-    const container = document.getElementById('participantsContainer');
+// Activity Functions
+function updateActivityParticipantsCheckboxes() {
+    const container = document.getElementById('activity-participants-checkboxes');
+    container.innerHTML = '';
     
-    if (state.participants.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No participants added yet</div>';
-        return;
-    }
-    
-    container.innerHTML = state.participants.map(person => `
-        <div class="list-item">
-            <div>
-                <strong>${person.name}</strong>
-                <div style="font-size: 0.9rem; color: #666;">
-                    Budget: ${formatCurrency(person.budget, person.currency)}
-                    ${person.spent > 0 ? `<br>Spent: ${formatCurrency(person.spent, person.currency)}` : ''}
-                </div>
-            </div>
-            <button class="delete-btn" onclick="deleteParticipant(${person.id})">
-                <i class="fas fa-trash"></i>
-            </button>
-        </div>
-    `).join('');
-}
-
-function deleteParticipant(id) {
-    state.participants = state.participants.filter(p => p.id !== id);
-    updateParticipantsDisplay();
-    saveData();
-}
-
-// ====================
-// ACTIVITIES (Budget Check Only - NOT for balances)
-// ====================
-function updateActivityParticipants() {
-    const container = document.getElementById('activityParticipantsCheckboxes');
-    
-    if (state.participants.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Add participants in Step 2 first</div>';
-        return;
-    }
-    
-    container.innerHTML = state.participants.map(person => `
-        <label class="checkbox-item">
-            <input type="checkbox" value="${person.id}" checked>
-            ${person.name}
-        </label>
-    `).join('');
-}
-
-function checkActivityBudget() {
-    const activityCost = parseFloat(document.getElementById('activityCost').value) || 0;
-    const currency = document.getElementById('activityCurrency').value;
-    
-    if (activityCost <= 0) {
-        alert("Please enter an activity cost");
-        return;
-    }
-    
-    // Get selected participants
-    const selectedParticipants = [];
-    document.querySelectorAll('#activityParticipantsCheckboxes input:checked').forEach(cb => {
-        selectedParticipants.push(parseInt(cb.value));
+    state.participants.forEach(participant => {
+        const checkbox = document.createElement('div');
+        checkbox.className = 'participant-chip';
+        checkbox.innerHTML = `
+            <input type="checkbox" id="act-part-${participant.id}" value="${participant.id}" checked>
+            <label for="act-part-${participant.id}">${participant.name}</label>
+        `;
+        container.appendChild(checkbox);
     });
-    
-    if (selectedParticipants.length === 0) {
-        alert("Please select at least one participant");
-        return;
-    }
-    
-    const costPerPerson = activityCost / selectedParticipants.length;
-    let html = '';
-    let allWithinBudget = true;
-    
-    selectedParticipants.forEach(pid => {
-        const person = state.participants.find(p => p.id === pid);
-        if (person) {
-            // Convert cost to person's currency
-            const costInPersonCurrency = convertCurrencyAmount(costPerPerson, currency, person.currency);
-            const remainingBudget = person.budget - person.spent;
-            const canAfford = remainingBudget >= costInPersonCurrency;
-            
-            const statusClass = canAfford ? 'budget-good' : 'budget-danger';
-            const statusText = canAfford ? '✓ Within budget' : '✗ Exceeds budget!';
-            
-            html += `
-                <div style="margin: 10px 0; padding: 10px; background: ${canAfford ? '#e8f5e9' : '#ffebee'}; border-radius: 8px;">
-                    <strong>${person.name}</strong>
-                    <div style="font-size: 0.9rem;">
-                        Activity cost: ${formatCurrency(costInPersonCurrency, person.currency)} each
-                        <br>Remaining budget: ${formatCurrency(remainingBudget, person.currency)}
-                        <br><span class="${statusClass}">${statusText}</span>
-                    </div>
-                </div>
-            `;
-            
-            if (!canAfford) allWithinBudget = false;
-        }
-    });
-    
-    document.getElementById('budgetStatus').innerHTML = html;
-    document.getElementById('budgetStatusContainer').style.display = 'block';
-    
-    // Update button text based on budget status
-    const addBtn = document.querySelector('button[onclick="addActivity()"]');
-    if (addBtn) {
-        if (!allWithinBudget) {
-            addBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Add Anyway (Budget Warning)';
-            addBtn.style.background = '#FF9800';
-        } else {
-            addBtn.innerHTML = '<i class="fas fa-plus"></i> Add to Plan';
-            addBtn.style.background = '#4CAF50';
-        }
-    }
 }
 
 function addActivity() {
-    const name = document.getElementById('activityName').value.trim();
-    const cost = parseFloat(document.getElementById('activityCost').value) || 0;
-    const currency = document.getElementById('activityCurrency').value;
-    const dateInput = document.getElementById('activityDate').value;
-    const description = document.getElementById('activityDescription').value;
+    const name = document.getElementById('activity-name').value;
+    const cost = parseFloat(document.getElementById('activity-cost').value);
+    const date = document.getElementById('activity-date').value;
     
-    if (!name || cost <= 0) {
-        alert("Please enter activity name and cost");
+    if (!name || isNaN(cost) || cost <= 0 || !date) {
+        alert('Please fill in all activity fields');
         return;
     }
-    
-    const date = dateInput ? new Date(dateInput) : new Date();
     
     // Get selected participants
     const selectedParticipants = [];
-    document.querySelectorAll('#activityParticipantsCheckboxes input:checked').forEach(cb => {
-        selectedParticipants.push(parseInt(cb.value));
+    state.participants.forEach(participant => {
+        const checkbox = document.getElementById(`act-part-${participant.id}`);
+        if (checkbox && checkbox.checked) {
+            selectedParticipants.push(participant.id);
+        }
     });
     
     if (selectedParticipants.length === 0) {
-        alert("Please select at least one participant");
+        alert('Please select at least one participant');
         return;
     }
     
-    const costPerPerson = cost / selectedParticipants.length;
-    
-    // Check budgets and ask for confirmation if over budget
-    let overBudgetParticipants = [];
-    selectedParticipants.forEach(pid => {
-        const person = state.participants.find(p => p.id === pid);
-        if (person) {
-            const costInPersonCurrency = convertCurrencyAmount(costPerPerson, currency, person.currency);
-            const remainingBudget = person.budget - person.spent;
-            if (remainingBudget < costInPersonCurrency) {
-                overBudgetParticipants.push(person.name);
-            }
-        }
-    });
-    
-    if (overBudgetParticipants.length > 0) {
-        const confirmAdd = confirm(
-            `${overBudgetParticipants.join(', ')} ${overBudgetParticipants.length === 1 ? 'is' : 'are'} over budget. Add activity anyway?`
-        );
-        if (!confirmAdd) return;
-    }
-    
-    // Add activity (but DON'T update spent amounts - activities are just for planning)
-    const newActivity = {
+    const activity = {
         id: Date.now(),
         name: name,
         cost: cost,
-        currency: currency,
         date: date,
-        description: description,
-        participantIds: selectedParticipants,
-        costPerPerson: costPerPerson
+        participantIds: selectedParticipants
     };
     
-    state.activities.push(newActivity);
-    updateActivitiesDisplay();
-    saveData();
+    state.activities.push(activity);
+    
+    // Update participant budgets
+    updateParticipantBudgets();
+    updateActivitiesList();
+    updateBudgetVisualization();
+    saveToLocalStorage();
     
     // Clear inputs
-    document.getElementById('activityName').value = '';
-    document.getElementById('activityCost').value = '';
-    document.getElementById('activityDescription').value = '';
-    document.getElementById('budgetStatusContainer').style.display = 'none';
+    document.getElementById('activity-name').value = '';
+    document.getElementById('activity-cost').value = '';
+    document.getElementById('activity-date').value = '';
 }
 
-function updateActivitiesDisplay() {
-    const container = document.getElementById('activitiesContainer');
+// Expense Functions
+function updateExpenseParticipantsCheckboxes() {
+    const container = document.getElementById('expense-participants-checkboxes');
+    container.innerHTML = '';
     
-    if (state.activities.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No activities planned yet</div>';
-        return;
-    }
-    
-    container.innerHTML = state.activities.map(activity => {
-        const participants = activity.participantIds.map(id => {
-            const person = state.participants.find(p => p.id === id);
-            return person ? person.name : 'Unknown';
-        }).join(', ');
-        
-        const dateStr = activity.date.toLocaleDateString();
-        
-        return `
-            <div class="list-item">
-                <div>
-                    <strong>${activity.name}</strong>
-                    <div style="font-size: 0.9rem; color: #666;">
-                        ${dateStr} | ${formatCurrency(activity.cost, activity.currency)}
-                        <br>${formatCurrency(activity.costPerPerson, activity.currency)} per person
-                    </div>
-                    <div style="font-size: 0.9rem; color: #666;">
-                        Participants: ${participants}
-                    </div>
-                    ${activity.description ? `<div style="font-size: 0.9rem; color: #777;">${activity.description}</div>` : ''}
-                </div>
-                <button class="delete-btn" onclick="deleteActivity(${activity.id})">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
+    state.participants.forEach(participant => {
+        const checkbox = document.createElement('div');
+        checkbox.className = 'participant-chip';
+        checkbox.innerHTML = `
+            <input type="checkbox" id="exp-part-${participant.id}" value="${participant.id}" checked>
+            <label for="exp-part-${participant.id}">${participant.name}</label>
         `;
-    }).join('');
+        container.appendChild(checkbox);
+    });
 }
 
-function deleteActivity(id) {
-    state.activities = state.activities.filter(a => a.id !== id);
-    updateActivitiesDisplay();
-    saveData();
-}
-
-// ====================
-// EXPENSES (ONLY these count toward balances)
-// ====================
-function updateExpenseForm() {
-    const paidBySelect = document.getElementById('paidBy');
-    const splitContainer = document.getElementById('splitCheckboxes');
+function updatePaidBySelect() {
+    const select = document.getElementById('paid-by');
+    select.innerHTML = '<option value="">Select who paid</option>';
     
-    // Update "Paid By" dropdown
-    paidBySelect.innerHTML = '<option value="">Select who paid</option>' + 
-        state.participants.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-    
-    // Update split checkboxes
-    if (state.participants.length === 0) {
-        splitContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Add participants first</div>';
-    } else {
-        splitContainer.innerHTML = state.participants.map(p => `
-            <label class="checkbox-item">
-                <input type="checkbox" value="${p.id}" checked>
-                ${p.name}
-            </label>
-        `).join('');
-    }
+    state.participants.forEach(participant => {
+        const option = document.createElement('option');
+        option.value = participant.id;
+        option.textContent = participant.name;
+        select.appendChild(option);
+    });
 }
 
 function addExpense() {
-    const name = document.getElementById('expenseName').value.trim();
-    const amount = parseFloat(document.getElementById('expenseAmount').value);
-    const currency = document.getElementById('expenseCurrency').value;
-    const paidById = parseInt(document.getElementById('paidBy').value);
-    const category = document.getElementById('expenseCategory').value;
+    const description = document.getElementById('expense-description').value;
+    const amount = parseFloat(document.getElementById('expense-amount').value);
+    const category = document.getElementById('expense-category').value;
+    const currency = document.getElementById('expense-currency').value;
+    const paidBy = document.getElementById('paid-by').value;
     
-    if (!name || !amount || !paidById) {
-        alert("Please fill all required fields");
+    if (!description || isNaN(amount) || amount <= 0 || !paidBy) {
+        alert('Please fill in all required expense fields');
         return;
     }
     
-    // Get selected participants for splitting
-    const splitBetween = [];
-    document.querySelectorAll('#splitCheckboxes input:checked').forEach(cb => {
-        splitBetween.push(parseInt(cb.value));
-    });
-    
-    if (splitBetween.length === 0) {
-        alert("Please select at least one person to split with");
-        return;
-    }
-    
-    // Update person's spent amount
-    const share = amount / splitBetween.length;
-    
-    splitBetween.forEach(pid => {
-        const person = state.participants.find(p => p.id === pid);
-        if (person && pid !== paidById) {
-            // Add share to person's spent amount
-            const shareInPersonCurrency = convertCurrencyAmount(share, currency, person.currency);
-            person.spent += shareInPersonCurrency;
+    // Get selected participants
+    const selectedParticipants = [];
+    state.participants.forEach(participant => {
+        const checkbox = document.getElementById(`exp-part-${participant.id}`);
+        if (checkbox && checkbox.checked) {
+            selectedParticipants.push(participant.id);
         }
     });
     
-    // Subtract from person who paid (they get money back from others)
-    const paidByPerson = state.participants.find(p => p.id === paidById);
-    if (paidByPerson) {
-        const totalReceived = amount - share; // They don't pay their own share
-        const totalReceivedInPersonCurrency = convertCurrencyAmount(totalReceived, currency, paidByPerson.currency);
-        paidByPerson.spent -= totalReceivedInPersonCurrency;
+    if (selectedParticipants.length === 0) {
+        alert('Please select at least one participant to split with');
+        return;
     }
     
-    const newExpense = {
+    const expense = {
         id: Date.now(),
-        name: name,
+        description: description,
         amount: amount,
-        currency: currency,
-        paidById: paidById,
         category: category,
-        splitBetween: splitBetween,
-        date: new Date()
+        currency: currency,
+        paidBy: paidBy,
+        participantIds: selectedParticipants,
+        date: new Date().toISOString().split('T')[0]
     };
     
-    state.expenses.push(newExpense);
-    updateExpensesDisplay();
-    updateParticipantsDisplay(); // Update spent amounts
-    saveData();
+    state.expenses.push(expense);
+    updateExpensesList();
+    calculateBalances();
+    saveToLocalStorage();
     
     // Clear inputs
-    document.getElementById('expenseName').value = '';
-    document.getElementById('expenseAmount').value = '';
+    document.getElementById('expense-description').value = '';
+    document.getElementById('expense-amount').value = '';
 }
 
-function updateExpensesDisplay() {
-    const container = document.getElementById('expensesContainer');
+// Balance Functions
+function convertToBaseCurrency(amount, fromCurrency) {
+    const baseCurrency = document.getElementById('base-currency').value;
+    if (fromCurrency === baseCurrency) return amount;
     
-    if (state.expenses.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No expenses added yet</div>';
-        return;
-    }
-    
-    container.innerHTML = state.expenses.map(expense => {
-        const paidBy = state.participants.find(p => p.id === expense.paidById)?.name || 'Unknown';
-        const splitCount = expense.splitBetween.length;
-        const share = expense.amount / splitCount;
-        
-        const categoryIcons = {
-            food: '🍕',
-            transport: '🚗',
-            accommodation: '🏨',
-            activities: '🎭',
-            shopping: '🛍️',
-            other: '📦'
-        };
-        
-        return `
-            <div class="list-item">
-                <div>
-                    <strong>${categoryIcons[expense.category] || '📦'} ${expense.name}</strong>
-                    <div style="font-size: 0.9rem; color: #666;">
-                        ${formatCurrency(expense.amount, expense.currency)} 
-                        | Paid by: ${paidBy}
-                    </div>
-                    <div style="font-size: 0.9rem; color: #666;">
-                        Split ${splitCount} ways (${formatCurrency(share, expense.currency)} each)
-                    </div>
-                </div>
-                <button class="delete-btn" onclick="deleteExpense(${expense.id})">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `;
-    }).join('');
+    // Convert to USD first, then to base currency
+    const amountInUSD = amount / state.exchangeRates[fromCurrency];
+    return amountInUSD * state.exchangeRates[baseCurrency];
 }
 
-function deleteExpense(id) {
-    // Find and remove expense
-    const expenseIndex = state.expenses.findIndex(e => e.id === id);
-    if (expenseIndex === -1) return;
+function calculateBalances() {
+    const baseCurrency = document.getElementById('base-currency').value;
+    const balances = {};
     
-    const expense = state.expenses[expenseIndex];
-    const share = expense.amount / expense.splitBetween.length;
-    
-    // Reverse the spent amounts
-    expense.splitBetween.forEach(pid => {
-        const person = state.participants.find(p => p.id === pid);
-        if (person && pid !== expense.paidById) {
-            const shareInPersonCurrency = convertCurrencyAmount(share, expense.currency, person.currency);
-            person.spent -= shareInPersonCurrency;
-        }
+    // Initialize balances
+    state.participants.forEach(p => {
+        balances[p.id] = 0;
     });
     
-    // Reverse for person who paid
-    const paidByPerson = state.participants.find(p => p.id === expense.paidById);
-    if (paidByPerson) {
-        const totalReceived = expense.amount - share;
-        const totalReceivedInPersonCurrency = convertCurrencyAmount(totalReceived, expense.currency, paidByPerson.currency);
-        paidByPerson.spent += totalReceivedInPersonCurrency;
-    }
+    // Calculate balances from expenses
+    state.expenses.forEach(expense => {
+        const splitCount = expense.participantIds.length;
+        const sharePerPerson = expense.amount / splitCount;
+        
+        // Convert to base currency
+        const shareInBase = convertToBaseCurrency(sharePerPerson, expense.currency);
+        const totalInBase = convertToBaseCurrency(expense.amount, expense.currency);
+        
+        // Paid person gets credited
+        balances[expense.paidBy] += totalInBase;
+        
+        // Participants get debited
+        expense.participantIds.forEach(pid => {
+            balances[pid] -= shareInBase;
+        });
+    });
     
-    // Remove expense
-    state.expenses.splice(expenseIndex, 1);
-    updateExpensesDisplay();
-    updateParticipantsDisplay();
-    saveData();
+    // Update UI
+    updateBalancesSummary(balances, baseCurrency);
 }
 
-// ====================
-// CURRENCY CONVERTER
-// ====================
-function swapCurrencies() {
-    const fromCurrency = document.getElementById('convertFromCurrency');
-    const toCurrency = document.getElementById('convertToCurrency');
-    const fromAmount = document.getElementById('convertFromAmount');
-    const toAmount = document.getElementById('convertToAmount');
-    
-    // Swap currencies
-    const temp = fromCurrency.value;
-    fromCurrency.value = toCurrency.value;
-    toCurrency.value = temp;
-    
-    // Swap amounts if toAmount has value
-    if (toAmount.value) {
-        const tempAmount = fromAmount.value;
-        fromAmount.value = toAmount.value;
-        toAmount.value = tempAmount;
+function settleAll() {
+    if (confirm('Mark all balances as settled? This will clear all expense records.')) {
+        state.expenses = [];
+        updateExpensesList();
+        calculateBalances();
+        saveToLocalStorage();
+        alert('All balances have been marked as settled!');
     }
+}
+
+// Currency Converter Functions
+function swapCurrencies() {
+    const fromSelect = document.getElementById('convert-from');
+    const toSelect = document.getElementById('convert-to');
+    
+    const tempValue = fromSelect.value;
+    fromSelect.value = toSelect.value;
+    toSelect.value = tempValue;
     
     convertCurrency();
 }
 
 function convertCurrency() {
-    const amount = parseFloat(document.getElementById('convertFromAmount').value);
-    const fromCurrency = document.getElementById('convertFromCurrency').value;
-    const toCurrency = document.getElementById('convertToCurrency').value;
+    const amount = parseFloat(document.getElementById('convert-amount').value);
+    const fromCurrency = document.getElementById('convert-from').value;
+    const toCurrency = document.getElementById('convert-to').value;
     
-    if (!amount || amount <= 0) {
-        document.getElementById('convertToAmount').value = '';
+    if (isNaN(amount) || amount <= 0) {
+        alert('Please enter a valid amount');
         return;
     }
     
-    const result = convertCurrencyAmount(amount, fromCurrency, toCurrency);
-    document.getElementById('convertToAmount').value = result.toFixed(2);
+    // Convert using exchange rates
+    const amountInUSD = amount / state.exchangeRates[fromCurrency];
+    const convertedAmount = amountInUSD * state.exchangeRates[toCurrency];
+    
+    const resultElement = document.getElementById('conversion-result');
+    resultElement.innerHTML = `
+        ${amount.toFixed(2)} ${fromCurrency} = 
+        <span style="color: #4facfe;">${convertedAmount.toFixed(2)} ${toCurrency}</span>
+    `;
 }
 
-function convertCurrencyAmount(amount, fromCurrency, toCurrency) {
-    if (fromCurrency === toCurrency) return amount;
-    const inUSD = amount / state.exchangeRates[fromCurrency];
-    const result = inUSD * state.exchangeRates[toCurrency];
-    return parseFloat(result.toFixed(2));
+// UI Update Functions
+function updateTripSummary() {
+    const summary = document.getElementById('trip-summary');
+    
+    if (state.trip.name) {
+        summary.innerHTML = `
+            <h3><i class="fas fa-umbrella-beach"></i> ${state.trip.name}</h3>
+            <p><strong>Destination:</strong> ${state.trip.destination}</p>
+            <p><strong>Dates:</strong> ${formatDate(state.trip.startDate)} to ${formatDate(state.trip.endDate)}</p>
+            ${state.trip.description ? `<p><strong>Description:</strong> ${state.trip.description}</p>` : ''}
+            ${state.trip.reminders.length > 0 ? `<p><strong>Reminders:</strong> ${state.trip.reminders.length} set</p>` : ''}
+        `;
+    }
 }
 
-// ====================
-// FINAL BALANCES (ONLY from expenses, NOT activities)
-// ====================
-function calculateFinalBalances() {
+function updateRemindersList() {
+    const container = document.getElementById('reminders-list');
+    container.innerHTML = '';
+    
+    if (state.trip.reminders.length === 0) {
+        container.innerHTML = '<p style="color: #666; font-style: italic;">No reminders set</p>';
+        return;
+    }
+    
+    state.trip.reminders.forEach(reminder => {
+        const reminderDiv = document.createElement('div');
+        reminderDiv.className = 'participant-chip';
+        reminderDiv.innerHTML = `
+            <i class="fas fa-bell"></i>
+            <span>${reminder.note} - ${reminder.date} at ${reminder.time}</span>
+            <button onclick="removeReminder(${reminder.id})" style="background: none; border: none; color: #dc3545; cursor: pointer;">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        container.appendChild(reminderDiv);
+    });
+}
+
+function updateParticipantsList() {
+    const container = document.getElementById('participants-list');
+    container.innerHTML = '';
+    
     if (state.participants.length === 0) {
-        document.getElementById('balancesList').innerHTML = 
-            '<div style="text-align: center; color: #666; padding: 20px;">Add participants and expenses first</div>';
+        container.innerHTML = '<p style="color: #666; font-style: italic;">No participants added yet</p>';
         return;
     }
+    
+    state.participants.forEach(participant => {
+        const percentage = (participant.remainingBudget / participant.budget) * 100;
+        const statusClass = percentage > 50 ? 'budget-green' : percentage > 20 ? 'budget-yellow' : 'budget-red';
+        
+        const card = document.createElement('div');
+        card.className = 'participant-card';
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h3><i class="fas fa-user" style="color: ${participant.color}"></i> ${participant.name}</h3>
+                    <p>Budget: ${participant.budget.toFixed(2)} ${participant.currency}</p>
+                    <p>Remaining: <strong>${participant.remainingBudget.toFixed(2)} ${participant.currency}</strong></p>
+                    <p>Spent: ${participant.spent.toFixed(2)} ${participant.currency}</p>
+                </div>
+                <button onclick="removeParticipant(${participant.id})" class="btn btn-danger">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+            <div class="budget-bar">
+                <div class="budget-fill ${statusClass}" style="width: ${percentage}%;"></div>
+            </div>
+            ${participant.remainingBudget < 0 ? 
+                `<p style="color: #dc3545; margin-top: 10px;">
+                    <i class="fas fa-exclamation-triangle"></i> Over budget by ${Math.abs(participant.remainingBudget).toFixed(2)} ${participant.currency}
+                </p>` : ''
+            }
+        `;
+        container.appendChild(card);
+    });
+}
+
+function updateActivitiesList() {
+    const container = document.getElementById('activities-list');
+    container.innerHTML = '';
+    
+    if (state.activities.length === 0) {
+        container.innerHTML = '<p style="color: #666; font-style: italic;">No activities planned yet</p>';
+        return;
+    }
+    
+    state.activities.forEach(activity => {
+        const participantNames = state.participants
+            .filter(p => activity.participantIds.includes(p.id))
+            .map(p => p.name)
+            .join(', ');
+        
+        const card = document.createElement('div');
+        card.className = 'activity-card';
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div>
+                    <h3><i class="fas fa-hiking"></i> ${activity.name}</h3>
+                    <p><strong>Date:</strong> ${formatDate(activity.date)}</p>
+                    <p><strong>Cost per person:</strong> ${activity.cost.toFixed(2)}</p>
+                    <p><strong>Participants:</strong> ${participantNames}</p>
+                    <p><strong>Total cost:</strong> ${(activity.cost * activity.participantIds.length).toFixed(2)}</p>
+                </div>
+                <button onclick="removeActivity(${activity.id})" class="btn btn-danger">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function updateExpensesList() {
+    const container = document.getElementById('expenses-list');
+    container.innerHTML = '';
     
     if (state.expenses.length === 0) {
-        document.getElementById('balancesList').innerHTML = 
-            '<div style="text-align: center; color: #666; padding: 20px;">Add expenses in Step 4 to see balances</div>';
+        container.innerHTML = '<p style="color: #666; font-style: italic;">No expenses recorded yet</p>';
         return;
     }
     
-    // Calculate net position for each person
-    const balances = {};
-    state.participants.forEach(p => balances[p.id] = 0);
-    
-    // Only count expenses (activities are just for planning)
     state.expenses.forEach(expense => {
-        const share = expense.amount / expense.splitBetween.length;
-        const paidById = expense.paidById;
+        const paidBy = state.participants.find(p => p.id == expense.paidBy);
+        const participantNames = state.participants
+            .filter(p => expense.participantIds.includes(p.id))
+            .map(p => p.name)
+            .join(', ');
         
-        // Convert to each person's currency
-        expense.splitBetween.forEach(pid => {
-            const person = state.participants.find(p => p.id === pid);
-            if (person) {
-                const amountInPersonCurrency = convertCurrencyAmount(
-                    pid === paidById ? expense.amount - share : -share,
-                    expense.currency,
-                    person.currency
-                );
-                balances[pid] += amountInPersonCurrency;
+        const categoryClass = `category-${expense.category}`;
+        const categoryNames = {
+            food: 'Food & Dining',
+            transport: 'Transportation',
+            accommodation: 'Accommodation',
+            activities: 'Activities',
+            shopping: 'Shopping',
+            other: 'Other'
+        };
+        
+        const card = document.createElement('div');
+        card.className = 'expense-card';
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                    <h3><i class="fas fa-receipt"></i> ${expense.description}</h3>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 10px;">
+                        <span class="category-badge ${categoryClass}">
+                            ${categoryNames[expense.category]}
+                        </span>
+                        <span><strong>Amount:</strong> ${expense.amount.toFixed(2)} ${expense.currency}</span>
+                        <span><strong>Paid by:</strong> ${paidBy ? paidBy.name : 'Unknown'}</span>
+                        <span><strong>Date:</strong> ${formatDate(expense.date)}</span>
+                    </div>
+                    <p style="margin-top: 10px;"><strong>Split between:</strong> ${participantNames}</p>
+                    <p><strong>Share per person:</strong> ${(expense.amount / expense.participantIds.length).toFixed(2)} ${expense.currency}</p>
+                </div>
+                <button onclick="removeExpense(${expense.id})" class="btn btn-danger">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function updateBudgetVisualization() {
+    const container = document.getElementById('budget-visualization');
+    container.innerHTML = '';
+    
+    if (state.participants.length === 0) {
+        container.innerHTML = '<p style="color: #666; font-style: italic;">Add participants to see budget visualization</p>';
+        return;
+    }
+    
+    state.participants.forEach(participant => {
+        const percentage = (participant.remainingBudget / participant.budget) * 100;
+        const statusClass = percentage > 50 ? 'budget-green' : percentage > 20 ? 'budget-yellow' : 'budget-red';
+        
+        const card = document.createElement('div');
+        card.className = 'balance-card';
+        card.innerHTML = `
+            <h3><i class="fas fa-user" style="color: ${participant.color}"></i> ${participant.name}'s Budget</h3>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <span>Original: ${participant.budget.toFixed(2)} ${participant.currency}</span>
+                <span>Remaining: <strong>${participant.remainingBudget.toFixed(2)} ${participant.currency}</strong></span>
+                <span>Spent: ${participant.spent.toFixed(2)} ${participant.currency}</span>
+            </div>
+            <div class="budget-bar">
+                <div class="budget-fill ${statusClass}" style="width: ${Math.min(percentage, 100)}%;"></div>
+            </div>
+            ${participant.remainingBudget < 0 ? 
+                `<p style="color: #dc3545; margin-top: 10px; font-weight: bold;">
+                    <i class="fas fa-exclamation-triangle"></i> OVER BUDGET by ${Math.abs(participant.remainingBudget).toFixed(2)} ${participant.currency}
+                </p>` : 
+                `<p style="color: #28a745; margin-top: 10px; font-weight: bold;">
+                    <i class="fas fa-check-circle"></i> Within budget (${percentage.toFixed(1)}% remaining)
+                </p>`
+            }
+        `;
+        container.appendChild(card);
+    });
+}
+
+function updateBalancesSummary(balances, baseCurrency) {
+    const container = document.getElementById('balances-summary');
+    container.innerHTML = '';
+    
+    if (state.participants.length === 0) {
+        container.innerHTML = '<p style="color: #666; font-style: italic;">Add participants and expenses to see balances</p>';
+        return;
+    }
+    
+    const settlements = [];
+    const creditors = [];
+    const debtors = [];
+    
+    // Separate creditors and debtors
+    state.participants.forEach(participant => {
+        const balance = balances[participant.id] || 0;
+        const balanceFormatted = Math.abs(balance).toFixed(2);
+        
+        if (balance > 0.01) { // Creditor
+            creditors.push({ participant, amount: balance });
+        } else if (balance < -0.01) { // Debtor
+            debtors.push({ participant, amount: -balance });
+        }
+        
+        const balanceClass = balance > 0.01 ? 'balance-positive' : 
+                           balance < -0.01 ? 'balance-negative' : 'balance-zero';
+        
+        const card = document.createElement('div');
+        card.className = 'balance-card';
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h3><i class="fas fa-user" style="color: ${participant.color}"></i> ${participant.name}</h3>
+                    <p>Balance in ${baseCurrency}:</p>
+                </div>
+                <div class="${balanceClass}" style="font-size: 1.5rem;">
+                    ${balance > 0 ? '+' : ''}${balance.toFixed(2)} ${baseCurrency}
+                </div>
+            </div>
+            ${balance > 0.01 ? 
+                `<p style="color: #28a745; margin-top: 10px;">
+                    <i class="fas fa-hand-holding-usd"></i> Should receive ${balanceFormatted} ${baseCurrency}
+                </p>` : 
+             balance < -0.01 ?
+                `<p style="color: #dc3545; margin-top: 10px;">
+                    <i class="fas fa-money-check-alt"></i> Should pay ${balanceFormatted} ${baseCurrency}
+                </p>` :
+                `<p style="color: #6c757d; margin-top: 10px;">
+                    <i class="fas fa-check-circle"></i> All settled up
+                </p>`
+            }
+        `;
+        container.appendChild(card);
+    });
+    
+    // Calculate settlements (simplified)
+    if (creditors.length > 0 && debtors.length > 0) {
+        const settlementDiv = document.createElement('div');
+        settlementDiv.className = 'balance-card';
+        settlementDiv.style.background = 'linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%)';
+        settlementDiv.innerHTML = `
+            <h3><i class="fas fa-handshake"></i> Suggested Settlements</h3>
+            <p>To settle all balances:</p>
+        `;
+        
+        let settlementText = '';
+        debtors.forEach(debtor => {
+            creditors.forEach(creditor => {
+                if (debtor.amount > 0 && creditor.amount > 0) {
+                    const settleAmount = Math.min(debtor.amount, creditor.amount);
+                    if (settleAmount > 0.01) {
+                        settlementText += `
+                            <p style="margin: 10px 0; padding: 10px; background: white; border-radius: 8px;">
+                                <strong>${debtor.participant.name}</strong> should pay 
+                                <strong>${creditor.participant.name}</strong>: 
+                                ${settleAmount.toFixed(2)} ${baseCurrency}
+                            </p>
+                        `;
+                        debtor.amount -= settleAmount;
+                        creditor.amount -= settleAmount;
+                    }
+                }
+            });
+        });
+        
+        if (settlementText) {
+            settlementDiv.innerHTML += settlementText;
+        } else {
+            settlementDiv.innerHTML += '<p style="color: #666; font-style: italic;">No settlements needed</p>';
+        }
+        
+        container.appendChild(settlementDiv);
+    }
+}
+
+function updateParticipantBudgets() {
+    // Reset all participants
+    state.participants.forEach(p => {
+        p.remainingBudget = p.budget;
+        p.spent = 0;
+    });
+    
+    // Apply activity costs
+    state.activities.forEach(activity => {
+        const costPerPerson = activity.cost;
+        activity.participantIds.forEach(pid => {
+            const participant = state.participants.find(p => p.id === pid);
+            if (participant) {
+                participant.spent += costPerPerson;
+                participant.remainingBudget -= costPerPerson;
             }
         });
     });
-    
-    // Display results
-    let html = '';
-    let totalOwed = 0;
-    let totalGets = 0;
-    
-    state.participants.forEach(person => {
-        const balance = balances[person.id];
-        
-        if (balance < 0) {
-            totalOwed += Math.abs(balance);
-        } else if (balance > 0) {
-            totalGets += balance;
-        }
-        
-        if (Math.abs(balance) > 0.01) { // Only show significant amounts
-            html += `
-                <div class="list-item">
-                    <strong>${person.name}</strong>
-                    <span class="${balance >= 0 ? 'balance-positive' : 'balance-negative'}">
-                        ${balance >= 0 ? 'Gets ' : 'Owes '}${formatCurrency(Math.abs(balance), person.currency)}
-                    </span>
-                </div>
-            `;
-        }
+}
+
+function updateParticipantSelectors() {
+    // This function ensures all participant-based selectors are updated
+    updateActivityParticipantsCheckboxes();
+    updateExpenseParticipantsCheckboxes();
+    updatePaidBySelect();
+}
+
+// Helper Functions
+function getRandomColor() {
+    const colors = ['#4facfe', '#00f2fe', '#43e97b', '#fa709a', '#ff9a9e', '#fad0c4', '#a1c4fd', '#ffecd2'];
+    return colors[Math.floor(Math.random() * colors.length)];
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'Not set';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
     });
-    
-    if (html === '') {
-        html = '<div style="text-align: center; color: #666; padding: 20px;">Balances are settled! No money owed.</div>';
+}
+
+function removeReminder(id) {
+    state.trip.reminders = state.trip.reminders.filter(r => r.id !== id);
+    updateRemindersList();
+    saveToLocalStorage();
+}
+
+function removeParticipant(id) {
+    if (confirm('Are you sure? This will remove all related activities and expenses.')) {
+        // Remove participant
+        state.participants = state.participants.filter(p => p.id !== id);
+        
+        // Remove from activities
+        state.activities.forEach(activity => {
+            activity.participantIds = activity.participantIds.filter(pid => pid !== id);
+        });
+        state.activities = state.activities.filter(a => a.participantIds.length > 0);
+        
+        // Remove from expenses
+        state.expenses.forEach(expense => {
+            expense.participantIds = expense.participantIds.filter(pid => pid !== id);
+        });
+        state.expenses = state.expenses.filter(e => e.participantIds.length > 0);
+        
+        updateParticipantsList();
+        updateParticipantSelectors();
+        updateActivitiesList();
+        updateExpensesList();
+        updateBudgetVisualization();
+        calculateBalances();
+        saveToLocalStorage();
     }
-    
-    document.getElementById('balancesList').innerHTML = html;
 }
 
-// ====================
-// HELPER FUNCTIONS
-// ====================
-function formatCurrency(amount, currency) {
-    if (isNaN(amount)) amount = 0;
-    const symbols = { USD: '$', EUR: '€', GBP: '£', JPY: '¥', INR: '₹' };
-    const symbol = symbols[currency] || currency;
-    if (currency === 'JPY') return `${symbol}${Math.round(amount)}`;
-    return `${symbol}${amount.toFixed(2)}`;
+function removeActivity(id) {
+    state.activities = state.activities.filter(a => a.id !== id);
+    updateParticipantBudgets();
+    updateActivitiesList();
+    updateBudgetVisualization();
+    saveToLocalStorage();
 }
 
-// ====================
-// START THE APP
-// ====================
-window.onload = initializeApp;
+function removeExpense(id) {
+    state.expenses = state.expenses.filter(e => e.id !== id);
+    updateExpensesList();
+    calculateBalances();
+    saveToLocalStorage();
+}
+
+// Local Storage Functions
+function saveToLocalStorage() {
+    localStorage.setItem('tripPlannerState', JSON.stringify(state));
+}
+
+function loadFromLocalStorage() {
+    const saved = localStorage.getItem('tripPlannerState');
+    if (saved) {
+        state = JSON.parse(saved);
+    }
+}
+
+// Set today's date as default for date inputs
+document.getElementById('start-date').valueAsDate = new Date();
+const endDate = new Date();
+endDate.setDate(endDate.getDate() + 7);
+document.getElementById('end-date').valueAsDate = endDate;
+document.getElementById('activity-date').valueAsDate = new Date();
+document.getElementById('reminder-date').valueAsDate = new Date();
