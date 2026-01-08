@@ -1,4 +1,4 @@
-// Global State
+// Global State - Stores all data
 const state = {
     trip: {
         name: "Bali Vacation",
@@ -23,41 +23,17 @@ const state = {
     }
 };
 
-// Initialize App
-document.addEventListener('DOMContentLoaded', function() {
-    initializeApp();
-});
-
+// ====================
+// INITIALIZE APP
+// ====================
 function initializeApp() {
-    // Setup tab navigation
     setupTabs();
-    
-    // Set default dates
-    const today = new Date();
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 7);
-    
-    document.getElementById('startDate').value = formatDate(today, 'DD/MM/YYYY');
-    document.getElementById('endDate').value = formatDate(nextWeek, 'DD/MM/YYYY');
-    
-    // Initialize calendars
-    createCalendar('calendarStart', 'start');
-    createCalendar('calendarEnd', 'end');
-    createCalendar('calendarActivity', 'activity');
-    
-    // Load saved data
-    loadData();
-    
-    // Add default participants if empty
-    if (state.participants.length === 0) {
-        addDefaultParticipants();
-    }
-    
-    // Update all displays
+    setDefaultDates();
+    createCalendars();
+    loadSavedData();
+    addDefaultParticipants();
+    setupEventListeners();
     updateAllDisplays();
-    
-    // Setup auto-format for date inputs
-    setupDateAutoFormat();
     
     // Close calendar when clicking outside
     document.addEventListener('click', function(e) {
@@ -67,7 +43,9 @@ function initializeApp() {
     });
 }
 
-// Tab Navigation
+// ====================
+// TAB NAVIGATION
+// ====================
 function setupTabs() {
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -92,118 +70,50 @@ function setupTabs() {
     });
 }
 
-// Load/Save Data
-function loadData() {
-    const saved = localStorage.getItem('tripPlannerData');
-    if (saved) {
-        const data = JSON.parse(saved);
-        
-        // Restore dates from strings
-        if (data.trip.startDate) data.trip.startDate = new Date(data.trip.startDate);
-        if (data.trip.endDate) data.trip.endDate = new Date(data.trip.endDate);
-        
-        // Restore activity dates
-        if (data.activities) {
-            data.activities.forEach(activity => {
-                if (activity.date) activity.date = new Date(activity.date);
-            });
-        }
-        
-        // Restore expense dates
-        if (data.expenses) {
-            data.expenses.forEach(expense => {
-                if (expense.date) expense.date = new Date(expense.date);
-            });
-        }
-        
-        Object.assign(state, data);
-        
-        // Update UI from saved state
-        if (state.trip.name) document.getElementById('tripName').value = state.trip.name;
-        if (state.trip.destination) document.getElementById('destination').value = state.trip.destination;
-        if (state.trip.description) document.getElementById('tripDescription').value = state.trip.description;
-        
-        if (state.trip.startDate) {
-            document.getElementById('startDate').value = formatDate(state.trip.startDate, 'DD/MM/YYYY');
-        }
-        if (state.trip.endDate) {
-            document.getElementById('endDate').value = formatDate(state.trip.endDate, 'DD/MM/YYYY');
-        }
-    }
-}
-
-function saveData() {
-    // Save trip info
-    state.trip.name = document.getElementById('tripName').value;
-    state.trip.destination = document.getElementById('destination').value;
-    state.trip.description = document.getElementById('tripDescription').value;
+// ====================
+// DATE FUNCTIONS
+// ====================
+function setDefaultDates() {
+    const today = new Date();
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
     
-    localStorage.setItem('tripPlannerData', JSON.stringify(state));
+    document.getElementById('startDate').value = formatDate(today, 'DD/MM/YYYY');
+    document.getElementById('endDate').value = formatDate(nextWeek, 'DD/MM/YYYY');
 }
 
-// Date Functions
 function formatDate(date, format = 'DD/MM/YYYY') {
     if (!date) return '';
-    
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
-    
-    if (format === 'DD/MM/YYYY') {
-        return `${day}/${month}/${year}`;
-    }
     return `${day}/${month}/${year}`;
 }
 
 function parseDateInput(input) {
     if (!input) return null;
-    
-    // Try DD/MM/YYYY format
     const match = input.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
     if (match) {
         const day = parseInt(match[1]);
         const month = parseInt(match[2]) - 1;
         const year = parseInt(match[3]);
         const date = new Date(year, month, day);
-        
-        // Check if date is valid
         if (date.getDate() === day && date.getMonth() === month && date.getFullYear() === year) {
             return date;
         }
     }
-    
     return null;
 }
 
-function setupDateAutoFormat() {
-    const dateInputs = document.querySelectorAll('input[placeholder*="DD/MM/YYYY"]');
-    
-    dateInputs.forEach(input => {
-        input.addEventListener('input', function(e) {
-            let value = e.target.value.replace(/\D/g, '');
-            
-            if (value.length > 2) {
-                value = value.substring(0, 2) + '/' + value.substring(2);
-            }
-            if (value.length > 5) {
-                value = value.substring(0, 5) + '/' + value.substring(5, 9);
-            }
-            
-            e.target.value = value;
-            
-            // Update state if it's a trip date
-            if (e.target.id === 'startDate') {
-                const date = parseDateInput(value);
-                if (date) state.trip.startDate = date;
-            } else if (e.target.id === 'endDate') {
-                const date = parseDateInput(value);
-                if (date) state.trip.endDate = date;
-            }
-        });
-    });
+// ====================
+// CALENDAR FUNCTIONS
+// ====================
+function createCalendars() {
+    createCalendar('calendarStart', 'start');
+    createCalendar('calendarEnd', 'end');
+    createCalendar('calendarActivity', 'activity');
 }
 
-// Calendar Functions
 function createCalendar(containerId, type) {
     const container = document.getElementById(containerId);
     const today = new Date();
@@ -211,25 +121,13 @@ function createCalendar(containerId, type) {
     
     container.innerHTML = generateCalendarHTML(currentDate, today, type);
     
-    // Add click handlers for calendar buttons
+    // Add click handlers
     const prevBtn = container.querySelector('.prev-month');
     const nextBtn = container.querySelector('.next-month');
     
-    if (prevBtn) {
-        prevBtn.onclick = (e) => {
-            e.stopPropagation();
-            changeMonth(containerId, type, -1);
-        };
-    }
+    if (prevBtn) prevBtn.onclick = (e) => { e.stopPropagation(); changeMonth(containerId, type, -1); };
+    if (nextBtn) nextBtn.onclick = (e) => { e.stopPropagation(); changeMonth(containerId, type, 1); };
     
-    if (nextBtn) {
-        nextBtn.onclick = (e) => {
-            e.stopPropagation();
-            changeMonth(containerId, type, 1);
-        };
-    }
-    
-    // Add click handlers for days
     addDayClickHandlers(containerId, type);
 }
 
@@ -237,7 +135,6 @@ function changeMonth(containerId, type, direction) {
     const currentDate = new Date(state.calendar.currentDate);
     currentDate.setMonth(currentDate.getMonth() + direction);
     state.calendar.currentDate = currentDate;
-    
     createCalendar(containerId, type);
 }
 
@@ -248,29 +145,24 @@ function addDayClickHandlers(containerId, type) {
     dayElements.forEach(day => {
         day.onclick = function(e) {
             e.stopPropagation();
-            
             const dayNum = parseInt(this.textContent);
             const currentDate = new Date(state.calendar.currentDate);
             const selectedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), dayNum);
             
-            // Update the input field
+            // Update input field
             const inputId = type === 'activity' ? 'activityDate' : `${type}Date`;
             document.getElementById(inputId).value = formatDate(selectedDate, 'DD/MM/YYYY');
             
             // Update state
-            if (type === 'start') {
-                state.trip.startDate = selectedDate;
-            } else if (type === 'end') {
-                state.trip.endDate = selectedDate;
-            }
+            if (type === 'start') state.trip.startDate = selectedDate;
+            if (type === 'end') state.trip.endDate = selectedDate;
             
-            // Update calendar to show selection
+            // Update calendar
             state.calendar.selectedDate = selectedDate;
             createCalendar(containerId, type);
             
-            // Hide calendar after selection
+            // Hide calendar
             setTimeout(() => hideCalendar(type), 300);
-            
             saveData();
         };
     });
@@ -279,12 +171,8 @@ function addDayClickHandlers(containerId, type) {
 function generateCalendarHTML(date, today, type) {
     const year = date.getFullYear();
     const month = date.getMonth();
-    
-    // Get first day of month
     const firstDay = new Date(year, month, 1);
-    // Get last day of month
     const lastDay = new Date(year, month + 1, 0);
-    // Get starting day (0 = Sunday, 1 = Monday, etc.)
     const startDay = firstDay.getDay();
     
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -297,21 +185,15 @@ function generateCalendarHTML(date, today, type) {
                 <div class="calendar-month-year">${monthNames[month]} ${year}</div>
                 <button class="next-month"><i class="fas fa-chevron-right"></i></button>
             </div>
-            
             <div class="calendar-weekdays">
                 <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div>
                 <div>Thu</div><div>Fri</div><div>Sat</div>
             </div>
-            
             <div class="calendar-days">
     `;
     
-    // Empty cells for days before the first of the month
-    for (let i = 0; i < startDay; i++) {
-        html += `<div class="calendar-day empty"></div>`;
-    }
+    for (let i = 0; i < startDay; i++) html += `<div class="calendar-day empty"></div>`;
     
-    // Days of the month
     for (let day = 1; day <= lastDay.getDate(); day++) {
         const currentDate = new Date(year, month, day);
         const isToday = currentDate.toDateString() === today.toDateString();
@@ -325,25 +207,16 @@ function generateCalendarHTML(date, today, type) {
         html += `<div class="${className}">${day}</div>`;
     }
     
-    html += `
-            </div>
-        </div>
-    `;
-    
+    html += `</div></div>`;
     return html;
 }
 
 function toggleCalendar(type) {
     const calendarId = `calendar${type.charAt(0).toUpperCase() + type.slice(1)}`;
     const calendar = document.getElementById(calendarId);
-    
-    // Hide all calendars first
     hideAllCalendars();
-    
-    // Show this calendar
     calendar.classList.add('active');
     
-    // Update to current input date if exists
     const currentInputId = type === 'activity' ? 'activityDate' : `${type}Date`;
     const currentValue = document.getElementById(currentInputId).value;
     
@@ -370,15 +243,109 @@ function hideAllCalendars() {
     });
 }
 
-// Participants
-function addDefaultParticipants() {
-    const defaultParticipants = [
-        { id: 1, name: "You", budget: 1000, currency: "USD" },
-        { id: 2, name: "Friend", budget: 800, currency: "USD" },
-        { id: 3, name: "Partner", budget: 1200, currency: "USD" }
-    ];
+// ====================
+// CALENDAR EXPORT & NOTIFICATIONS
+// ====================
+function exportToCalendar() {
+    const startDate = parseDateInput(document.getElementById('startDate').value);
+    const endDate = parseDateInput(document.getElementById('endDate').value);
+    const tripName = document.getElementById('tripName').value || 'Trip';
+    const destination = document.getElementById('destination').value || '';
     
-    state.participants = defaultParticipants;
+    if (!startDate || !endDate) {
+        alert('Please set valid start and end dates first');
+        return;
+    }
+    
+    // Create iCalendar content
+    const formatICalDate = (date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const icalContent = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'BEGIN:VEVENT',
+        `SUMMARY:${tripName} Trip`,
+        `DESCRIPTION:Trip to ${destination}. Planned with Trip Planner App`,
+        `DTSTART:${formatICalDate(startDate)}`,
+        `DTEND:${formatICalDate(new Date(endDate.getTime() + 24 * 60 * 60 * 1000))}`,
+        `LOCATION:${destination}`,
+        'END:VEVENT',
+        'END:VCALENDAR'
+    ].join('\n');
+    
+    // Create download link
+    const blob = new Blob([icalContent], { type: 'text/calendar;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${tripName.replace(/\s+/g, '_')}_trip.ics`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    document.getElementById('calendarStatus').innerHTML = 
+        '<span style="color: #4CAF50;"><i class="fas fa-check-circle"></i> Calendar file downloaded! Import to your calendar app</span>';
+}
+
+function setupNotifications() {
+    if (!('Notification' in window)) {
+        alert('This browser does not support desktop notifications');
+        return;
+    }
+    
+    if (Notification.permission === 'granted') {
+        scheduleNotifications();
+    } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(permission => {
+            if (permission === 'granted') scheduleNotifications();
+        });
+    }
+}
+
+function scheduleNotifications() {
+    const startDate = parseDateInput(document.getElementById('startDate').value);
+    const tripName = document.getElementById('tripName').value || 'Your Trip';
+    
+    if (!startDate) {
+        alert('Please set a valid start date first');
+        return;
+    }
+    
+    const now = new Date();
+    const daysUntil = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntil > 0) {
+        const notificationTime = new Date(startDate);
+        notificationTime.setDate(notificationTime.getDate() - 1);
+        notificationTime.setHours(9, 0, 0);
+        const timeUntilNotify = notificationTime - now;
+        
+        if (timeUntilNotify > 0) {
+            setTimeout(() => {
+                new Notification('Trip Tomorrow!', {
+                    body: `Don't forget: ${tripName} starts tomorrow!`,
+                    icon: 'https://cdn-icons-png.flaticon.com/512/2907/2907972.png'
+                });
+            }, timeUntilNotify);
+        }
+        
+        document.getElementById('calendarStatus').innerHTML = 
+            `<span style="color: #4CAF50;">
+                <i class="fas fa-check-circle"></i> Notifications set! You'll get a reminder 1 day before your trip
+            </span>`;
+    }
+}
+
+// ====================
+// PARTICIPANTS
+// ====================
+function addDefaultParticipants() {
+    if (state.participants.length === 0) {
+        state.participants = [
+            { id: 1, name: "You", budget: 1000, currency: "USD" },
+            { id: 2, name: "Friend", budget: 800, currency: "USD" },
+            { id: 3, name: "Partner", budget: 1200, currency: "USD" }
+        ];
+    }
 }
 
 function addPerson() {
@@ -391,26 +358,12 @@ function addPerson() {
         return;
     }
     
-    const newPerson = {
-        id: Date.now(),
-        name: name,
-        budget: budget,
-        currency: currency
-    };
-    
-    state.participants.push(newPerson);
+    state.participants.push({ id: Date.now(), name, budget, currency });
     updateAllDisplays();
     saveData();
     
-    // Clear inputs
     document.getElementById('personName').value = '';
     document.getElementById('personBudget').value = '';
-}
-
-function updateAllDisplays() {
-    updateParticipantsDisplay();
-    updateActivityForm();
-    updateExpenseForm();
 }
 
 function updateParticipantsDisplay() {
@@ -442,7 +395,9 @@ function deleteParticipant(id) {
     saveData();
 }
 
-// Activities
+// ====================
+// ACTIVITIES WITH BUDGET CHECK
+// ====================
 function updateActivityForm() {
     const container = document.getElementById('activityParticipantsCheckboxes');
     
@@ -457,6 +412,92 @@ function updateActivityForm() {
             ${person.name}
         </label>
     `).join('');
+    
+    setTimeout(checkBudgets, 100);
+}
+
+function checkBudgets() {
+    const activityCost = parseFloat(document.getElementById('activityCost').value) || 0;
+    const currency = document.getElementById('activityCurrency').value;
+    
+    if (activityCost <= 0) {
+        document.getElementById('budgetCheck').style.display = 'none';
+        return;
+    }
+    
+    const selectedParticipants = [];
+    document.querySelectorAll('#activityParticipantsCheckboxes input:checked').forEach(cb => {
+        selectedParticipants.push(parseInt(cb.value));
+    });
+    
+    if (selectedParticipants.length === 0) {
+        document.getElementById('budgetCheck').style.display = 'none';
+        return;
+    }
+    
+    const costPerPerson = activityCost / selectedParticipants.length;
+    let html = '';
+    let allHaveBudget = true;
+    
+    selectedParticipants.forEach(pid => {
+        const person = state.participants.find(p => p.id === pid);
+        if (person) {
+            const costInPersonCurrency = convertCurrencyAmount(costPerPerson, currency, person.currency);
+            const remainingBudget = person.budget - getPersonTotalSpent(pid);
+            const canAfford = remainingBudget >= costInPersonCurrency;
+            
+            html += `
+                <div style="margin: 8px 0; padding: 8px; background: ${canAfford ? '#e8f5e9' : '#ffebee'}; border-radius: 5px;">
+                    <strong>${person.name}:</strong> ${formatCurrency(costInPersonCurrency, person.currency)}
+                    <div style="font-size: 0.85rem;">
+                        Remaining budget: ${formatCurrency(remainingBudget, person.currency)}
+                        ${!canAfford ? '<span style="color: #f44336;"> (Exceeds budget!)</span>' : ''}
+                    </div>
+                </div>
+            `;
+            
+            if (!canAfford) allHaveBudget = false;
+        }
+    });
+    
+    document.getElementById('budgetStatus').innerHTML = html;
+    document.getElementById('budgetCheck').style.display = 'block';
+    
+    const addBtn = document.querySelector('button[onclick="addActivity()"]');
+    if (addBtn) {
+        if (!allHaveBudget) {
+            addBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Add Activity (Budget Warning)';
+            addBtn.style.background = '#FF9800';
+        } else {
+            addBtn.innerHTML = '<i class="fas fa-calendar-plus"></i> Add Activity';
+            addBtn.style.background = '#2196F3';
+        }
+    }
+}
+
+function getPersonTotalSpent(personId) {
+    let total = 0;
+    
+    // Add expenses
+    state.expenses.forEach(expense => {
+        if (expense.splitBetween.includes(personId)) {
+            const share = expense.amount / expense.splitBetween.length;
+            const shareInPersonCurrency = convertCurrencyAmount(share, expense.currency, 
+                state.participants.find(p => p.id === personId)?.currency || 'USD');
+            total += shareInPersonCurrency;
+        }
+    });
+    
+    // Add activities
+    state.activities.forEach(activity => {
+        if (activity.participantIds.includes(personId)) {
+            const costInPersonCurrency = convertCurrencyAmount(activity.costPerPerson, activity.currency,
+                state.participants.find(p => p.id === personId)?.currency || 'USD');
+            total += costInPersonCurrency;
+        }
+    });
+    
+    return total;
 }
 
 function addActivity() {
@@ -477,7 +518,7 @@ function addActivity() {
         return;
     }
     
-    // Get selected participants
+    // Budget check
     const selectedParticipants = [];
     document.querySelectorAll('#activityParticipantsCheckboxes input:checked').forEach(cb => {
         selectedParticipants.push(parseInt(cb.value));
@@ -486,6 +527,28 @@ function addActivity() {
     if (selectedParticipants.length === 0) {
         alert("Please select at least one participant");
         return;
+    }
+    
+    const costPerPerson = cost / selectedParticipants.length;
+    let overBudgetParticipants = [];
+    
+    selectedParticipants.forEach(pid => {
+        const person = state.participants.find(p => p.id === pid);
+        if (person) {
+            const costInPersonCurrency = convertCurrencyAmount(costPerPerson, currency, person.currency);
+            const remainingBudget = person.budget - getPersonTotalSpent(pid);
+            
+            if (remainingBudget < costInPersonCurrency) {
+                overBudgetParticipants.push(person.name);
+            }
+        }
+    });
+    
+    if (overBudgetParticipants.length > 0) {
+        const confirmAdd = confirm(
+            `${overBudgetParticipants.join(', ')} ${overBudgetParticipants.length === 1 ? 'is' : 'are'} over budget. Add activity anyway?`
+        );
+        if (!confirmAdd) return;
     }
     
     const newActivity = {
@@ -503,11 +566,11 @@ function addActivity() {
     updateActivitiesDisplay();
     saveData();
     
-    // Clear inputs
     document.getElementById('activityName').value = '';
     document.getElementById('activityDate').value = '';
     document.getElementById('activityCost').value = '';
     document.getElementById('activityDescription').value = '';
+    document.getElementById('budgetCheck').style.display = 'none';
 }
 
 function updateActivitiesDisplay() {
@@ -551,18 +614,16 @@ function deleteActivity(id) {
     saveData();
 }
 
-// Expenses
+// ====================
+// EXPENSES WITH REAL-TIME BALANCE PREVIEW
+// ====================
 function updateExpenseForm() {
     const paidBySelect = document.getElementById('paidBy');
     const splitContainer = document.getElementById('splitCheckboxes');
     
-    // Update "Paid By" dropdown
     paidBySelect.innerHTML = '<option value="">Select who paid</option>' + 
-        state.participants.map(p => 
-            `<option value="${p.id}">${p.name}</option>`
-        ).join('');
+        state.participants.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
     
-    // Update split checkboxes
     if (state.participants.length === 0) {
         splitContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Add participants first</div>';
     } else {
@@ -573,6 +634,108 @@ function updateExpenseForm() {
             </label>
         `).join('');
     }
+    
+    setTimeout(updateBalancePreview, 100);
+}
+
+function updateBalancePreview() {
+    const expenseAmount = parseFloat(document.getElementById('expenseAmount').value) || 0;
+    const currency = document.getElementById('expenseCurrency').value;
+    const paidById = parseInt(document.getElementById('paidBy').value);
+    
+    if (expenseAmount <= 0 || !paidById || state.participants.length === 0) {
+        document.getElementById('balancePreview').innerHTML = 
+            '<div style="color: #666; text-align: center;">Enter expense details to see balance impact</div>';
+        return;
+    }
+    
+    const selectedParticipants = [];
+    document.querySelectorAll('#splitCheckboxes input:checked').forEach(cb => {
+        selectedParticipants.push(parseInt(cb.value));
+    });
+    
+    if (selectedParticipants.length === 0) {
+        document.getElementById('balancePreview').innerHTML = 
+            '<div style="color: #666; text-align: center;">Select participants to split with</div>';
+        return;
+    }
+    
+    // Calculate hypothetical balances
+    const hypotheticalBalances = {};
+    state.participants.forEach(p => hypotheticalBalances[p.id] = getPersonBalance(p.id));
+    
+    const share = expenseAmount / selectedParticipants.length;
+    
+    // Update balances with this new expense
+    selectedParticipants.forEach(pid => {
+        if (pid !== paidById) {
+            const shareInPersonCurrency = convertCurrencyAmount(share, currency,
+                state.participants.find(p => p.id === pid)?.currency || 'USD');
+            hypotheticalBalances[pid] -= shareInPersonCurrency;
+        }
+    });
+    
+    const paidShareInPersonCurrency = convertCurrencyAmount(expenseAmount, currency,
+        state.participants.find(p => p.id === paidById)?.currency || 'USD');
+    hypotheticalBalances[paidById] += paidShareInPersonCurrency;
+    
+    // Display results
+    let html = '<div style="display: grid; gap: 8px;">';
+    state.participants.forEach(person => {
+        const balance = hypotheticalBalances[person.id];
+        if (Math.abs(balance) > 0.01) {
+            html += `
+                <div style="display: flex; justify-content: space-between; align-items: center; 
+                          padding: 10px; background: ${balance >= 0 ? '#e8f5e9' : '#ffebee'}; 
+                          border-radius: 8px;">
+                    <span><strong>${person.name}</strong></span>
+                    <span style="color: ${balance >= 0 ? '#4CAF50' : '#f44336'}; font-weight: bold;">
+                        ${balance >= 0 ? '+' : ''}${formatCurrency(balance, person.currency)}
+                    </span>
+                </div>
+            `;
+        }
+    });
+    
+    if (html === '<div style="display: grid; gap: 8px;">') {
+        html += '<div style="color: #666; text-align: center;">No significant balance changes</div>';
+    }
+    
+    html += '</div>';
+    document.getElementById('balancePreview').innerHTML = html;
+}
+
+function getPersonBalance(personId) {
+    let balance = 0;
+    
+    // Process expenses
+    state.expenses.forEach(expense => {
+        const share = expense.amount / expense.splitBetween.length;
+        const paidById = expense.paidById;
+        
+        if (personId === paidById) {
+            const amountInPersonCurrency = convertCurrencyAmount(expense.amount, expense.currency,
+                state.participants.find(p => p.id === personId)?.currency || 'USD');
+            balance += amountInPersonCurrency;
+        }
+        
+        if (expense.splitBetween.includes(personId) && personId !== paidById) {
+            const shareInPersonCurrency = convertCurrencyAmount(share, expense.currency,
+                state.participants.find(p => p.id === personId)?.currency || 'USD');
+            balance -= shareInPersonCurrency;
+        }
+    });
+    
+    // Process activities
+    state.activities.forEach(activity => {
+        if (activity.participantIds.includes(personId)) {
+            const costInPersonCurrency = convertCurrencyAmount(activity.costPerPerson, activity.currency,
+                state.participants.find(p => p.id === personId)?.currency || 'USD');
+            balance -= costInPersonCurrency;
+        }
+    });
+    
+    return balance;
 }
 
 function addExpense() {
@@ -613,9 +776,9 @@ function addExpense() {
     updateExpensesDisplay();
     saveData();
     
-    // Clear inputs
     document.getElementById('expenseName').value = '';
     document.getElementById('expenseAmount').value = '';
+    updateBalancePreview();
 }
 
 function updateExpensesDisplay() {
@@ -666,7 +829,9 @@ function deleteExpense(id) {
     saveData();
 }
 
-// Currency Converter
+// ====================
+// CURRENCY CONVERTER
+// ====================
 function swapCurrencies() {
     const fromCurrency = document.getElementById('convertFromCurrency');
     const toCurrency = document.getElementById('convertToCurrency');
@@ -704,24 +869,20 @@ function convertCurrency() {
     document.getElementById('convertToAmount').value = result.toFixed(2);
     
     const resultDiv = document.getElementById('conversionResult');
-    resultDiv.innerHTML = `
-        ${formatCurrency(amount, fromCurrency)} = 
-        ${formatCurrency(result, toCurrency)}
-    `;
+    resultDiv.innerHTML = `${formatCurrency(amount, fromCurrency)} = ${formatCurrency(result, toCurrency)}`;
     resultDiv.style.display = 'block';
 }
 
 function convertCurrencyAmount(amount, fromCurrency, toCurrency) {
     if (fromCurrency === toCurrency) return amount;
-    
-    // Convert to USD first, then to target currency
     const inUSD = amount / state.exchangeRates[fromCurrency];
     const result = inUSD * state.exchangeRates[toCurrency];
-    
     return parseFloat(result.toFixed(2));
 }
 
-// Balance Calculations
+// ====================
+// BALANCE CALCULATIONS
+// ====================
 function calculateAllBalances() {
     if (state.participants.length === 0) {
         document.getElementById('balancesList').innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Add participants first</div>';
@@ -739,7 +900,6 @@ function calculateAllBalances() {
         const share = expense.amount / expense.splitBetween.length;
         const paidById = expense.paidById;
         
-        // Convert to USD
         const amountUSD = convertCurrencyAmount(expense.amount, expense.currency, 'USD');
         const shareUSD = amountUSD / expense.splitBetween.length;
         
@@ -747,9 +907,7 @@ function calculateAllBalances() {
         balances[paidById] += amountUSD;
         
         expense.splitBetween.forEach(pid => {
-            if (pid !== paidById) {
-                balances[pid] -= shareUSD;
-            }
+            if (pid !== paidById) balances[pid] -= shareUSD;
         });
     });
     
@@ -759,13 +917,10 @@ function calculateAllBalances() {
         const shareUSD = convertCurrencyAmount(share, activity.currency, 'USD');
         
         totalCost += activity.costPerPerson * activity.participantIds.length;
-        
-        activity.participantIds.forEach(pid => {
-            balances[pid] -= shareUSD;
-        });
+        activity.participantIds.forEach(pid => balances[pid] -= shareUSD);
     });
     
-    // Calculate total owed (only negative balances)
+    // Calculate total owed
     let totalOwed = 0;
     Object.values(balances).forEach(balance => {
         if (balance < 0) totalOwed += Math.abs(balance);
@@ -792,23 +947,86 @@ function calculateAllBalances() {
     document.getElementById('totalOwed').textContent = formatCurrency(totalOwed, 'USD');
 }
 
-// Helper Functions
+// ====================
+// HELPER FUNCTIONS
+// ====================
 function formatCurrency(amount, currency) {
     if (isNaN(amount)) amount = 0;
-    
-    const symbols = {
-        USD: '$',
-        EUR: '€',
-        GBP: '£',
-        JPY: '¥',
-        INR: '₹'
-    };
-    
+    const symbols = { USD: '$', EUR: '€', GBP: '£', JPY: '¥', INR: '₹' };
     const symbol = symbols[currency] || currency;
-    
-    if (currency === 'JPY') {
-        return `${symbol}${Math.round(amount)}`;
-    }
-    
+    if (currency === 'JPY') return `${symbol}${Math.round(amount)}`;
     return `${symbol}${amount.toFixed(2)}`;
 }
+
+function updateAllDisplays() {
+    updateParticipantsDisplay();
+    updateActivityForm();
+    updateExpenseForm();
+}
+
+function setupEventListeners() {
+    // Date auto-format
+    document.querySelectorAll('input[placeholder*="DD/MM/YYYY"]').forEach(input => {
+        input.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 2) value = value.substring(0, 2) + '/' + value.substring(2);
+            if (value.length > 5) value = value.substring(0, 5) + '/' + value.substring(5, 9);
+            e.target.value = value;
+        });
+    });
+    
+    // Budget check listeners
+    document.getElementById('activityCost').addEventListener('input', checkBudgets);
+    document.getElementById('activityCurrency').addEventListener('change', checkBudgets);
+    
+    // Balance preview listeners
+    document.getElementById('expenseAmount').addEventListener('input', updateBalancePreview);
+    document.getElementById('expenseCurrency').addEventListener('change', updateBalancePreview);
+    document.getElementById('paidBy').addEventListener('change', updateBalancePreview);
+    
+    // Update when checkboxes change
+    document.addEventListener('change', function(e) {
+        if (e.target.closest('#activityParticipantsCheckboxes')) checkBudgets();
+        if (e.target.closest('#splitCheckboxes')) updateBalancePreview();
+    });
+}
+
+function loadSavedData() {
+    const saved = localStorage.getItem('tripPlannerData');
+    if (saved) {
+        const data = JSON.parse(saved);
+        
+        // Restore dates
+        if (data.trip.startDate) data.trip.startDate = new Date(data.trip.startDate);
+        if (data.trip.endDate) data.trip.endDate = new Date(data.trip.endDate);
+        
+        // Restore activity dates
+        if (data.activities) {
+            data.activities.forEach(activity => {
+                if (activity.date) activity.date = new Date(activity.date);
+            });
+        }
+        
+        Object.assign(state, data);
+        
+        // Update UI from saved state
+        if (state.trip.name) document.getElementById('tripName').value = state.trip.name;
+        if (state.trip.destination) document.getElementById('destination').value = state.trip.destination;
+        if (state.trip.description) document.getElementById('tripDescription').value = state.trip.description;
+        
+        if (state.trip.startDate) document.getElementById('startDate').value = formatDate(state.trip.startDate, 'DD/MM/YYYY');
+        if (state.trip.endDate) document.getElementById('endDate').value = formatDate(state.trip.endDate, 'DD/MM/YYYY');
+    }
+}
+
+function saveData() {
+    state.trip.name = document.getElementById('tripName').value;
+    state.trip.destination = document.getElementById('destination').value;
+    state.trip.description = document.getElementById('tripDescription').value;
+    localStorage.setItem('tripPlannerData', JSON.stringify(state));
+}
+
+// ====================
+// START THE APP
+// ====================
+window.onload = initializeApp;
