@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Complete Trip & Expense Planner</title>
+    <title>Trip Planner & Expense Tracker</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -491,8 +491,8 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1><i class="fas fa-plane"></i> Complete Trip & Expense Planner</h1>
-            <p>Plan trips, split bills, convert currencies - All in one!</p>
+            <h1><i class="fas fa-plane"></i> Complete Trip & Expense Tracker</h1>
+            <p>Plan trips, split bills, track budgets - All in one!</p>
         </div>
         
         <!-- Tabs Navigation -->
@@ -570,7 +570,18 @@
                         </div>
                     </div>
                     
-                    <div class="input-group">
+                    <!-- Calendar Export Buttons -->
+                    <div style="margin-top: 20px;">
+                        <button onclick="exportToCalendar()" class="btn" style="background: #2196F3;">
+                            <i class="fas fa-calendar-plus"></i> Add to Device Calendar
+                        </button>
+                        <button onclick="setupNotifications()" class="btn" style="background: #FF9800; margin-left: 10px;">
+                            <i class="fas fa-bell"></i> Set Trip Reminders
+                        </button>
+                        <div id="calendarStatus" style="margin-top: 10px; font-size: 0.9rem; color: #666;"></div>
+                    </div>
+                    
+                    <div class="input-group" style="margin-top: 20px;">
                         <label for="tripDescription">Trip Description</label>
                         <textarea id="tripDescription" rows="3" placeholder="Any notes about the trip...">Beach vacation with friends</textarea>
                     </div>
@@ -669,7 +680,13 @@
                         <!-- Checkboxes will be added here -->
                     </div>
                     
-                    <button onclick="addActivity()" class="btn">
+                    <!-- Budget Check Section -->
+                    <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 10px; display: none;" id="budgetCheck">
+                        <h4><i class="fas fa-wallet"></i> Budget Check</h4>
+                        <div id="budgetStatus"></div>
+                    </div>
+                    
+                    <button onclick="addActivity()" class="btn" style="margin-top: 20px;">
                         <i class="fas fa-calendar-plus"></i> Add Activity
                     </button>
                     
@@ -734,7 +751,15 @@
                         <!-- Checkboxes will be added here -->
                     </div>
                     
-                    <button onclick="addExpense()" class="btn">
+                    <!-- Real-time Balance Preview -->
+                    <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 10px;">
+                        <h4><i class="fas fa-calculator"></i> Real-time Balance Preview</h4>
+                        <div id="balancePreview">
+                            <div style="color: #666; text-align: center;">Enter expense details to see balance impact</div>
+                        </div>
+                    </div>
+                    
+                    <button onclick="addExpense()" class="btn" style="margin-top: 20px;">
                         <i class="fas fa-save"></i> Add Expense
                     </button>
                     
@@ -834,7 +859,7 @@
                         </div>
                     </div>
                     
-                    <button onclick="calculateBalances()" class="btn" style="margin-top: 30px;">
+                    <button onclick="calculateAllBalances()" class="btn" style="margin-top: 30px;">
                         <i class="fas fa-calculator"></i> Calculate All Balances
                     </button>
                 </div>
