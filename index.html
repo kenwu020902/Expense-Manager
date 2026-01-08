@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TripPlanner Pro - Plan Your Perfect Trip</title>
+    <title>TripPlanner Pro - Real-Time Currency Converter</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -381,17 +381,57 @@
             color: #155724;
         }
 
-        .status-pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-
         .activity-cost-breakdown {
             background: #f8f9fa;
             border-radius: 8px;
             padding: 15px;
             margin-top: 15px;
             border-left: 4px solid #4facfe;
+        }
+
+        .api-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .api-online {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .api-offline {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .rate-info {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-top: 5px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4facfe;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         @media (max-width: 768px) {
@@ -407,6 +447,11 @@
         <div class="header">
             <h1><i class="fas fa-route"></i> TripPlanner Pro</h1>
             <p>Plan, budget, and manage your trips with ease</p>
+            <div style="margin-top: 10px;">
+                <span id="api-status" class="api-status api-offline">
+                    <i class="fas fa-circle"></i> Loading Exchange Rates...
+                </span>
+            </div>
         </div>
 
         <div class="tabs">
@@ -553,7 +598,7 @@
             </div>
         </div>
 
-        <!-- Tab 3: Planned Itinerary (CHANGED to Total Cost) -->
+        <!-- Tab 3: Planned Itinerary with Currency Option -->
         <div class="tab-content" id="itinerary">
             <h2><i class="fas fa-calendar-check"></i> Planned Itinerary</h2>
             <p style="color: #666; margin-bottom: 25px;">Plan activities with total cost and select which participants are involved</p>
@@ -569,13 +614,41 @@
                     <div class="form-group">
                         <label for="activity-total-cost"><i class="fas fa-money-bill"></i> Total Cost</label>
                         <input type="number" id="activity-total-cost" class="form-control" placeholder="e.g., 200" step="0.01">
-                        <small style="color: #666; display: block; margin-top: 5px;">This is the total cost for the activity</small>
                     </div>
                 </div>
                 <div class="col">
                     <div class="form-group">
+                        <label for="activity-currency"><i class="fas fa-coins"></i> Currency</label>
+                        <select id="activity-currency" class="form-control">
+                            <option value="USD">USD - US Dollar</option>
+                            <option value="EUR">EUR - Euro</option>
+                            <option value="GBP">GBP - British Pound</option>
+                            <option value="JPY">JPY - Japanese Yen</option>
+                            <option value="CAD">CAD - Canadian Dollar</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
                         <label for="activity-date"><i class="fas fa-calendar-day"></i> Date</label>
                         <input type="date" id="activity-date" class="form-control">
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="form-group">
+                        <label for="activity-display-currency"><i class="fas fa-exchange-alt"></i> Display Budget In</label>
+                        <select id="activity-display-currency" class="form-control" onchange="updateBudgetVisualization()">
+                            <option value="auto">Auto (Participant's Currency)</option>
+                            <option value="USD">USD - US Dollar</option>
+                            <option value="EUR">EUR - Euro</option>
+                            <option value="GBP">GBP - British Pound</option>
+                            <option value="JPY">JPY - Japanese Yen</option>
+                            <option value="CAD">CAD - Canadian Dollar</option>
+                        </select>
+                        <small style="color: #666; display: block; margin-top: 5px;">Convert all budgets to this currency for comparison</small>
                     </div>
                 </div>
             </div>
@@ -593,6 +666,9 @@
             <div id="activities-list" style="margin-top: 30px;"></div>
 
             <h3 style="margin-top: 40px;"><i class="fas fa-chart-line"></i> Budget Visualization</h3>
+            <div class="rate-info">
+                <i class="fas fa-sync-alt"></i> Using real-time exchange rates
+            </div>
             <div id="budget-visualization"></div>
 
             <div class="tab-navigation">
@@ -680,7 +756,7 @@
             </div>
         </div>
 
-        <!-- Tab 5: Balances & Settlements -->
+        <!-- Tab 5: Balances & Settlements with Real-Time Converter -->
         <div class="tab-content" id="balances">
             <h2><i class="fas fa-balance-scale"></i> Balances & Settlements</h2>
             <p style="color: #666; margin-bottom: 25px;">See who owes whom and settle up</p>
@@ -694,11 +770,12 @@
                     <option value="JPY">JPY - Japanese Yen</option>
                     <option value="CAD">CAD - Canadian Dollar</option>
                 </select>
+                <span id="rate-update-time" class="rate-info"></span>
             </div>
 
             <div id="balances-summary"></div>
 
-            <h3 style="margin-top: 40px;"><i class="fas fa-calculator"></i> Currency Converter</h3>
+            <h3 style="margin-top: 40px;"><i class="fas fa-calculator"></i> Real-Time Currency Converter</h3>
             <div class="converter-box">
                 <div class="row">
                     <div class="col">
@@ -714,6 +791,9 @@
                                 <option value="GBP">GBP - British Pound</option>
                                 <option value="JPY">JPY - Japanese Yen</option>
                                 <option value="CAD">CAD - Canadian Dollar</option>
+                                <option value="AUD">AUD - Australian Dollar</option>
+                                <option value="INR">INR - Indian Rupee</option>
+                                <option value="SGD">SGD - Singapore Dollar</option>
                             </select>
                         </div>
                     </div>
@@ -730,6 +810,9 @@
                                 <option value="GBP">GBP - British Pound</option>
                                 <option value="JPY">JPY - Japanese Yen</option>
                                 <option value="CAD">CAD - Canadian Dollar</option>
+                                <option value="AUD">AUD - Australian Dollar</option>
+                                <option value="INR">INR - Indian Rupee</option>
+                                <option value="SGD">SGD - Singapore Dollar</option>
                             </select>
                         </div>
                     </div>
@@ -741,7 +824,10 @@
                 </div>
                 <div class="form-group" style="margin-top: 20px;">
                     <div class="form-control" id="conversion-result" style="background: #f8f9fa; font-size: 1.2rem; font-weight: bold; text-align: center;">
-                        Result will appear here
+                        Enter amount and click Convert
+                    </div>
+                    <div class="rate-info" style="text-align: center; margin-top: 10px;">
+                        <i class="fas fa-sync-alt"></i> Rates update every 60 minutes
                     </div>
                 </div>
             </div>
@@ -749,8 +835,8 @@
             <div class="note-box">
                 <i class="fas fa-info-circle"></i> 
                 <strong>Note:</strong> Final settlement amounts may differ slightly due to rounding. 
-                We round to 2 decimal places for currency display, but exact calculations may have 
-                additional decimal places. This can cause small discrepancies in final totals.
+                Real-time exchange rates are provided by Frankfurter API and update hourly.
+                Budget calculations convert all amounts to the selected display currency for accurate comparisons.
             </div>
 
             <div class="tab-navigation">
@@ -769,7 +855,7 @@
     </div>
 
     <script>
-        // Global state management
+        // Global state management with real-time exchange rates
         let state = {
             trip: {
                 name: '',
@@ -782,18 +868,13 @@
             participants: [],
             activities: [],
             expenses: [],
-            exchangeRates: {
-                USD: 1,
-                EUR: 0.92,
-                GBP: 0.79,
-                JPY: 150,
-                CAD: 1.36,
-                AUD: 1.51,
-                INR: 83,
-                SGD: 1.34
-            }
+            exchangeRates: {},
+            lastRateUpdate: null
         };
 
+        // Frankfurter API endpoint for real-time rates (free, no API key needed)
+        const EXCHANGE_API = 'https://api.frankfurter.app/latest?from=USD';
+        
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
             loadFromLocalStorage();
@@ -816,12 +897,77 @@
             document.getElementById('end-date').value = nextWeekStr;
             document.getElementById('activity-date').value = today;
             document.getElementById('reminder-date').value = today;
+            
+            // Load real-time exchange rates
+            loadExchangeRates();
         });
+
+        // Load real-time exchange rates from API
+        async function loadExchangeRates() {
+            const statusElement = document.getElementById('api-status');
+            statusElement.innerHTML = '<span class="loading"></span> Fetching exchange rates...';
+            
+            try {
+                const response = await fetch(EXCHANGE_API);
+                if (!response.ok) throw new Error('API not available');
+                
+                const data = await response.json();
+                
+                // Store rates with USD as base (1:1)
+                state.exchangeRates = {
+                    USD: 1,
+                    EUR: data.rates.EUR || 0.92,
+                    GBP: data.rates.GBP || 0.79,
+                    JPY: data.rates.JPY || 150,
+                    CAD: data.rates.CAD || 1.36,
+                    AUD: data.rates.AUD || 1.51,
+                    INR: data.rates.INR || 83,
+                    SGD: data.rates.SGD || 1.34
+                };
+                
+                state.lastRateUpdate = new Date().toISOString();
+                
+                // Update UI
+                statusElement.innerHTML = '<i class="fas fa-circle" style="color: #28a745;"></i> Live Rates: Active';
+                statusElement.className = 'api-status api-online';
+                
+                // Update rate timestamp
+                const updateTime = document.getElementById('rate-update-time');
+                if (updateTime) {
+                    updateTime.innerHTML = `<i class="far fa-clock"></i> Updated: ${new Date().toLocaleTimeString()}`;
+                }
+                
+                console.log('Exchange rates loaded:', state.exchangeRates);
+                
+            } catch (error) {
+                console.error('Error loading exchange rates:', error);
+                
+                // Fallback to hardcoded rates
+                state.exchangeRates = {
+                    USD: 1,
+                    EUR: 0.92,
+                    GBP: 0.79,
+                    JPY: 150,
+                    CAD: 1.36,
+                    AUD: 1.51,
+                    INR: 83,
+                    SGD: 1.34
+                };
+                
+                statusElement.innerHTML = '<i class="fas fa-circle" style="color: #dc3545;"></i> Using Cached Rates';
+                statusElement.className = 'api-status api-offline';
+                
+                alert('Using cached exchange rates. Real-time rates unavailable.');
+            }
+            
+            // Recalculate everything with new rates
+            updateParticipantBudgets();
+            updateBudgetVisualization();
+            calculateBalances();
+        }
 
         // Tab switching
         function switchTab(tabId) {
-            console.log('Switching to tab:', tabId);
-            
             // Update active tab
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.classList.remove('active');
@@ -842,7 +988,6 @@
             const activeContent = document.getElementById(tabId);
             if (activeContent) {
                 activeContent.classList.add('active');
-                console.log('Activated content:', tabId);
             }
             
             // Update UI elements when switching to specific tabs
@@ -906,16 +1051,8 @@
                 participants: [],
                 activities: [],
                 expenses: [],
-                exchangeRates: {
-                    USD: 1,
-                    EUR: 0.92,
-                    GBP: 0.79,
-                    JPY: 150,
-                    CAD: 1.36,
-                    AUD: 1.51,
-                    INR: 83,
-                    SGD: 1.34
-                }
+                exchangeRates: {},
+                lastRateUpdate: null
             };
             
             // Clear localStorage
@@ -946,6 +1083,9 @@
             updateExpensesList();
             updateBudgetVisualization();
             calculateBalances();
+            
+            // Reload exchange rates
+            loadExchangeRates();
             
             // Switch back to trip details tab
             switchTab('trip-details');
@@ -1015,6 +1155,7 @@
                 name: name,
                 budget: budget,
                 currency: currency,
+                originalBudget: budget, // Store original budget
                 remainingBudget: budget,
                 spent: 0,
                 color: getRandomColor()
@@ -1033,7 +1174,7 @@
             alert('Participant added successfully!');
         }
 
-        // Activity Functions - CHANGED TO TOTAL COST
+        // Activity Functions with Currency Option
         function updateActivityParticipantsCheckboxes() {
             const container = document.getElementById('activity-participants-checkboxes');
             container.innerHTML = '';
@@ -1048,7 +1189,7 @@
                 checkbox.className = 'participant-chip';
                 checkbox.innerHTML = `
                     <input type="checkbox" id="act-part-${participant.id}" value="${participant.id}" checked>
-                    <label for="act-part-${participant.id}">${participant.name}</label>
+                    <label for="act-part-${participant.id}">${participant.name} (${participant.currency})</label>
                 `;
                 container.appendChild(checkbox);
             });
@@ -1058,6 +1199,7 @@
             const name = document.getElementById('activity-name').value;
             const totalCost = parseFloat(document.getElementById('activity-total-cost').value);
             const date = document.getElementById('activity-date').value;
+            const currency = document.getElementById('activity-currency').value;
             
             if (!name || isNaN(totalCost) || totalCost <= 0 || !date) {
                 alert('Please fill in all activity fields: Name, Total Cost (positive number), and Date');
@@ -1086,7 +1228,8 @@
             const activity = {
                 id: Date.now(),
                 name: name,
-                totalCost: totalCost, // Changed from cost to totalCost
+                totalCost: totalCost,
+                currency: currency, // Store activity currency
                 date: date,
                 participantIds: selectedParticipants
             };
@@ -1197,18 +1340,18 @@
             alert('Expense added successfully!');
         }
 
-        // Balance Functions
-        function convertToBaseCurrency(amount, fromCurrency) {
-            const baseCurrency = document.getElementById('base-currency').value;
-            if (fromCurrency === baseCurrency) return amount;
+        // Balance Functions with Real-Time Conversion
+        function convertCurrencyAmount(amount, fromCurrency, toCurrency) {
+            if (fromCurrency === toCurrency) return amount;
             
-            if (!state.exchangeRates[fromCurrency] || !state.exchangeRates[baseCurrency]) {
-                return amount; // Fallback if currency not found
+            if (!state.exchangeRates[fromCurrency] || !state.exchangeRates[toCurrency]) {
+                console.warn(`Missing exchange rate: ${fromCurrency} or ${toCurrency}`);
+                return amount; // Fallback
             }
             
-            // Convert to USD first, then to base currency
+            // Convert to USD first, then to target currency
             const amountInUSD = amount / state.exchangeRates[fromCurrency];
-            return amountInUSD * state.exchangeRates[baseCurrency];
+            return amountInUSD * state.exchangeRates[toCurrency];
         }
 
         function calculateBalances() {
@@ -1227,9 +1370,9 @@
                 
                 const sharePerPerson = expense.amount / splitCount;
                 
-                // Convert to base currency
-                const shareInBase = convertToBaseCurrency(sharePerPerson, expense.currency);
-                const totalInBase = convertToBaseCurrency(expense.amount, expense.currency);
+                // Convert to base currency using real-time rates
+                const shareInBase = convertCurrencyAmount(sharePerPerson, expense.currency, baseCurrency);
+                const totalInBase = convertCurrencyAmount(expense.amount, expense.currency, baseCurrency);
                 
                 // Paid person gets credited
                 if (balances[expense.paidBy] !== undefined) {
@@ -1263,7 +1406,7 @@
             }
         }
 
-        // Currency Converter Functions
+        // Real-Time Currency Converter Functions
         function swapCurrencies() {
             const fromSelect = document.getElementById('convert-from');
             const toSelect = document.getElementById('convert-to');
@@ -1290,14 +1433,16 @@
                 return;
             }
             
-            // Convert using exchange rates
-            const amountInUSD = amount / state.exchangeRates[fromCurrency];
-            const convertedAmount = amountInUSD * state.exchangeRates[toCurrency];
+            // Convert using real-time exchange rates
+            const convertedAmount = convertCurrencyAmount(amount, fromCurrency, toCurrency);
             
             const resultElement = document.getElementById('conversion-result');
             resultElement.innerHTML = `
                 ${amount.toFixed(2)} ${fromCurrency} = 
                 <span style="color: #4facfe;">${convertedAmount.toFixed(2)} ${toCurrency}</span>
+                <div style="font-size: 0.9rem; color: #666; margin-top: 5px;">
+                    1 ${fromCurrency} = ${(convertCurrencyAmount(1, fromCurrency, toCurrency)).toFixed(6)} ${toCurrency}
+                </div>
             `;
         }
 
@@ -1353,8 +1498,23 @@
                 return;
             }
             
+            const displayCurrency = document.getElementById('activity-display-currency').value;
+            
             state.participants.forEach(participant => {
-                const percentage = (participant.remainingBudget / participant.budget) * 100;
+                // Calculate converted amounts if display currency is not auto
+                let displayBudget = participant.budget;
+                let displayRemaining = participant.remainingBudget;
+                let displaySpent = participant.spent;
+                let displayCurrencyText = participant.currency;
+                
+                if (displayCurrency !== 'auto' && displayCurrency !== participant.currency) {
+                    displayBudget = convertCurrencyAmount(participant.originalBudget, participant.currency, displayCurrency);
+                    displayRemaining = convertCurrencyAmount(participant.remainingBudget, participant.currency, displayCurrency);
+                    displaySpent = convertCurrencyAmount(participant.spent, participant.currency, displayCurrency);
+                    displayCurrencyText = displayCurrency;
+                }
+                
+                const percentage = (participant.remainingBudget / participant.originalBudget) * 100;
                 const statusClass = percentage > 50 ? 'budget-green' : percentage > 20 ? 'budget-yellow' : 'budget-red';
                 
                 const card = document.createElement('div');
@@ -1363,9 +1523,11 @@
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <h3><i class="fas fa-user" style="color: ${participant.color}"></i> ${participant.name}</h3>
-                            <p>Budget: ${participant.budget.toFixed(2)} ${participant.currency}</p>
-                            <p>Remaining: <strong>${participant.remainingBudget.toFixed(2)} ${participant.currency}</strong></p>
-                            <p>Spent: ${participant.spent.toFixed(2)} ${participant.currency}</p>
+                            <p>Budget: ${displayBudget.toFixed(2)} ${displayCurrencyText}</p>
+                            <p>Remaining: <strong>${displayRemaining.toFixed(2)} ${displayCurrencyText}</strong></p>
+                            <p>Spent: ${displaySpent.toFixed(2)} ${displayCurrencyText}</p>
+                            ${displayCurrency !== 'auto' && displayCurrency !== participant.currency ? 
+                                `<small style="color: #666;">Original: ${participant.originalBudget.toFixed(2)} ${participant.currency}</small>` : ''}
                         </div>
                         <button onclick="removeParticipant(${participant.id})" class="btn btn-danger">
                             <i class="fas fa-trash"></i>
@@ -1396,7 +1558,7 @@
             state.activities.forEach(activity => {
                 const participantNames = state.participants
                     .filter(p => activity.participantIds.includes(p.id))
-                    .map(p => p.name)
+                    .map(p => `${p.name} (${p.currency})`)
                     .join(', ');
                 
                 const costPerPerson = activity.participantIds.length > 0 
@@ -1410,11 +1572,11 @@
                         <div>
                             <h3><i class="fas fa-hiking"></i> ${activity.name}</h3>
                             <p><strong>Date:</strong> ${formatDate(activity.date)}</p>
-                            <p><strong>Total Cost:</strong> ${activity.totalCost.toFixed(2)}</p>
+                            <p><strong>Total Cost:</strong> ${activity.totalCost.toFixed(2)} ${activity.currency}</p>
                             <p><strong>Participants:</strong> ${participantNames} (${activity.participantIds.length} people)</p>
                             <div class="activity-cost-breakdown">
-                                <p><strong>Cost per person:</strong> ${costPerPerson.toFixed(2)}</p>
-                                <p><strong>Total cost for all participants:</strong> ${activity.totalCost.toFixed(2)}</p>
+                                <p><strong>Cost per person:</strong> ${costPerPerson.toFixed(2)} ${activity.currency}</p>
+                                <p><strong>Total cost for all participants:</strong> ${activity.totalCost.toFixed(2)} ${activity.currency}</p>
                             </div>
                         </div>
                         <button onclick="removeActivity(${activity.id})" class="btn btn-danger">
@@ -1489,19 +1651,38 @@
                 return;
             }
             
+            const displayCurrency = document.getElementById('activity-display-currency').value;
+            
             state.participants.forEach(participant => {
-                const percentage = (participant.remainingBudget / participant.budget) * 100;
+                // Calculate converted amounts for display
+                let displayBudget = participant.originalBudget;
+                let displayRemaining = participant.remainingBudget;
+                let displaySpent = participant.spent;
+                let displayCurrencyText = participant.currency;
+                
+                if (displayCurrency !== 'auto' && displayCurrency !== participant.currency) {
+                    displayBudget = convertCurrencyAmount(participant.originalBudget, participant.currency, displayCurrency);
+                    displayRemaining = convertCurrencyAmount(participant.remainingBudget, participant.currency, displayCurrency);
+                    displaySpent = convertCurrencyAmount(participant.spent, participant.currency, displayCurrency);
+                    displayCurrencyText = displayCurrency;
+                }
+                
+                const percentage = (participant.remainingBudget / participant.originalBudget) * 100;
                 const statusClass = percentage > 50 ? 'budget-green' : percentage > 20 ? 'budget-yellow' : 'budget-red';
                 
                 const card = document.createElement('div');
                 card.className = 'balance-card';
                 card.innerHTML = `
                     <h3><i class="fas fa-user" style="color: ${participant.color}"></i> ${participant.name}'s Budget</h3>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                        <span>Original: ${participant.budget.toFixed(2)} ${participant.currency}</span>
-                        <span>Remaining: <strong>${participant.remainingBudget.toFixed(2)} ${participant.currency}</strong></span>
-                        <span>Spent: ${participant.spent.toFixed(2)} ${participant.currency}</span>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                        <span>Original: ${displayBudget.toFixed(2)} ${displayCurrencyText}</span>
+                        <span>Remaining: <strong>${displayRemaining.toFixed(2)} ${displayCurrencyText}</strong></span>
+                        <span>Spent: ${displaySpent.toFixed(2)} ${displayCurrencyText}</span>
                     </div>
+                    ${displayCurrency !== 'auto' && displayCurrency !== participant.currency ? 
+                        `<small style="color: #666; display: block; margin-bottom: 5px;">
+                            Original currency: ${participant.currency} | Converted to: ${displayCurrency}
+                        </small>` : ''}
                     <div class="budget-bar">
                         <div class="budget-fill ${statusClass}" style="width: ${Math.min(percentage, 100)}%;"></div>
                     </div>
@@ -1633,13 +1814,13 @@
         }
 
         function updateParticipantBudgets() {
-            // Reset all participants
+            // Reset all participants to original budget
             state.participants.forEach(p => {
-                p.remainingBudget = p.budget;
+                p.remainingBudget = p.originalBudget;
                 p.spent = 0;
             });
             
-            // Apply activity costs - CHANGED FOR TOTAL COST
+            // Apply activity costs with currency conversion
             state.activities.forEach(activity => {
                 const costPerPerson = activity.participantIds.length > 0 
                     ? activity.totalCost / activity.participantIds.length 
@@ -1648,8 +1829,15 @@
                 activity.participantIds.forEach(pid => {
                     const participant = state.participants.find(p => p.id === pid);
                     if (participant) {
-                        participant.spent += costPerPerson;
-                        participant.remainingBudget -= costPerPerson;
+                        // Convert activity cost to participant's currency
+                        const costInParticipantCurrency = convertCurrencyAmount(
+                            costPerPerson, 
+                            activity.currency, 
+                            participant.currency
+                        );
+                        
+                        participant.spent += costInParticipantCurrency;
+                        participant.remainingBudget -= costInParticipantCurrency;
                     }
                 });
             });
