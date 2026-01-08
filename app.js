@@ -20,11 +20,9 @@ const state = {
     }
 };
 
-// Initialize App
-window.onload = function() {
-    initializeApp();
-};
-
+// ====================
+// INITIALIZE APP
+// ====================
 function initializeApp() {
     // Set default dates to today and next week
     const today = new Date();
@@ -50,7 +48,123 @@ function initializeApp() {
     saveData();
 }
 
-// Step Navigation
+// ====================
+// CALENDAR EXPORT FUNCTIONS
+// ====================
+
+function exportToCalendar() {
+    const tripName = document.getElementById('tripName').value || 'My Trip';
+    const destination = document.getElementById('destination').value || '';
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    
+    if (!startDate || !endDate) {
+        alert('Please set both start and end dates first');
+        return;
+    }
+    
+    // Format dates for iCalendar
+    const formatICalDate = (dateString) => {
+        const date = new Date(dateString);
+        return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    };
+    
+    // Create iCalendar content
+    const icalContent = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Trip Planner//EN',
+        'BEGIN:VEVENT',
+        `SUMMARY:${tripName}`,
+        `DESCRIPTION:Trip to ${destination}. Planned with Trip Planner App`,
+        `DTSTART:${formatICalDate(startDate)}`,
+        `DTEND:${formatICalDate(endDate)}`,
+        `LOCATION:${destination}`,
+        'END:VEVENT',
+        'END:VCALENDAR'
+    ].join('\r\n');
+    
+    // Create download link
+    const blob = new Blob([icalContent], { type: 'text/calendar;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${tripName.replace(/\s+/g, '_')}_trip.ics`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Show success message
+    document.getElementById('calendarStatus').innerHTML = 
+        '<span style="color: #4CAF50;"><i class="fas fa-check-circle"></i> Calendar file downloaded! Import this .ics file to your calendar app.</span>';
+    
+    // Auto-hide message after 5 seconds
+    setTimeout(() => {
+        document.getElementById('calendarStatus').innerHTML = '';
+    }, 5000);
+}
+
+function setupTripReminder() {
+    const startDate = document.getElementById('startDate').value;
+    const tripName = document.getElementById('tripName').value || 'Your Trip';
+    
+    if (!startDate) {
+        alert('Please set a start date first');
+        return;
+    }
+    
+    if (!('Notification' in window)) {
+        alert('This browser doesn\'t support notifications');
+        return;
+    }
+    
+    if (Notification.permission === 'granted') {
+        scheduleReminder();
+    } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+                scheduleReminder();
+            }
+        });
+    }
+}
+
+function scheduleReminder() {
+    const startDate = new Date(document.getElementById('startDate').value);
+    const tripName = document.getElementById('tripName').value || 'Your Trip';
+    const now = new Date();
+    
+    // Calculate when to show notification (1 day before trip)
+    const reminderTime = new Date(startDate);
+    reminderTime.setDate(reminderTime.getDate() - 1);
+    reminderTime.setHours(9, 0, 0); // 9 AM day before
+    
+    const timeUntilReminder = reminderTime - now;
+    
+    if (timeUntilReminder > 0) {
+        setTimeout(() => {
+            new Notification('Trip Reminder!', {
+                body: `Don't forget: ${tripName} starts tomorrow!`,
+                icon: 'https://cdn-icons-png.flaticon.com/512/2907/2907972.png',
+                tag: 'trip-reminder'
+            });
+        }, timeUntilReminder);
+        
+        document.getElementById('calendarStatus').innerHTML = 
+            `<span style="color: #4CAF50;">
+                <i class="fas fa-check-circle"></i> Reminder set! You'll get a notification 1 day before your trip.
+            </span>`;
+    } else {
+        document.getElementById('calendarStatus').innerHTML = 
+            `<span style="color: #FF9800;">
+                <i class="fas fa-info-circle"></i> Trip is too soon for a reminder. You'll get a notification next time!
+            </span>`;
+    }
+}
+
+// ====================
+// STEP NAVIGATION
+// ====================
 function nextStep() {
     if (state.currentStep < 5) {
         state.currentStep++;
@@ -97,7 +211,9 @@ function updateStepDisplay() {
     saveData();
 }
 
-// Load/Save Data
+// ====================
+// LOAD/SAVE DATA
+// ====================
 function loadData() {
     const saved = localStorage.getItem('tripPlannerSimple');
     if (saved) {
@@ -148,7 +264,9 @@ function saveData() {
     localStorage.setItem('tripPlannerSimple', JSON.stringify(state));
 }
 
-// Participants
+// ====================
+// PARTICIPANTS
+// ====================
 function addPerson() {
     const name = document.getElementById('personName').value.trim();
     const budget = parseFloat(document.getElementById('personBudget').value) || 0;
@@ -206,7 +324,9 @@ function deleteParticipant(id) {
     saveData();
 }
 
-// Activities (Budget Check Only - NOT for balances)
+// ====================
+// ACTIVITIES (Budget Check Only - NOT for balances)
+// ====================
 function updateActivityParticipants() {
     const container = document.getElementById('activityParticipantsCheckboxes');
     
@@ -402,7 +522,9 @@ function deleteActivity(id) {
     saveData();
 }
 
-// Expenses (ONLY these count toward balances)
+// ====================
+// EXPENSES (ONLY these count toward balances)
+// ====================
 function updateExpenseForm() {
     const paidBySelect = document.getElementById('paidBy');
     const splitContainer = document.getElementById('splitCheckboxes');
@@ -562,7 +684,9 @@ function deleteExpense(id) {
     saveData();
 }
 
-// Currency Converter
+// ====================
+// CURRENCY CONVERTER
+// ====================
 function swapCurrencies() {
     const fromCurrency = document.getElementById('convertFromCurrency');
     const toCurrency = document.getElementById('convertToCurrency');
@@ -605,7 +729,9 @@ function convertCurrencyAmount(amount, fromCurrency, toCurrency) {
     return parseFloat(result.toFixed(2));
 }
 
-// Final Balances (ONLY from expenses, NOT activities)
+// ====================
+// FINAL BALANCES (ONLY from expenses, NOT activities)
+// ====================
 function calculateFinalBalances() {
     if (state.participants.length === 0) {
         document.getElementById('balancesList').innerHTML = 
@@ -675,7 +801,9 @@ function calculateFinalBalances() {
     document.getElementById('balancesList').innerHTML = html;
 }
 
-// Helper Functions
+// ====================
+// HELPER FUNCTIONS
+// ====================
 function formatCurrency(amount, currency) {
     if (isNaN(amount)) amount = 0;
     const symbols = { USD: '$', EUR: '€', GBP: '£', JPY: '¥', INR: '₹' };
@@ -683,3 +811,8 @@ function formatCurrency(amount, currency) {
     if (currency === 'JPY') return `${symbol}${Math.round(amount)}`;
     return `${symbol}${amount.toFixed(2)}`;
 }
+
+// ====================
+// START THE APP
+// ====================
+window.onload = initializeApp;
