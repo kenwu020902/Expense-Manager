@@ -467,6 +467,34 @@
                         </div>
                     </div>
                     
+                    <!-- ⭐⭐⭐ CALENDAR BUTTONS ADDED HERE ⭐⭐⭐ -->
+                    <div style="margin-top: 20px; padding: 20px; background: #e3f2fd; border-radius: 10px; border-left: 4px solid #2196F3;">
+                        <h3 style="margin-bottom: 10px; color: #1565C0;">
+                            <i class="fas fa-calendar-alt"></i> Calendar Options
+                        </h3>
+                        <p style="margin-bottom: 15px; color: #555; font-size: 0.95rem;">
+                            Manage your trip in your calendar
+                        </p>
+                        
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button onclick="exportToCalendar()" class="btn" style="background: #2196F3;">
+                                <i class="fas fa-download"></i> Export to Calendar
+                            </button>
+                            
+                            <button onclick="setupTripReminder()" class="btn" style="background: #FF9800;">
+                                <i class="fas fa-bell"></i> Set Reminder
+                            </button>
+                        </div>
+                        
+                        <div id="calendarStatus" style="margin-top: 10px; font-size: 0.9rem; color: #666;"></div>
+                        
+                        <div style="margin-top: 10px; font-size: 0.8rem; color: #666;">
+                            <i class="fas fa-info-circle"></i> 
+                            .ics files work with Google Calendar, Apple Calendar, Outlook, and most calendar apps
+                        </div>
+                    </div>
+                    <!-- ⭐⭐⭐ END CALENDAR BUTTONS ⭐⭐⭐ -->
+                    
                     <div class="input-group">
                         <label for="tripDescription">Trip Description (Optional)</label>
                         <textarea id="tripDescription" rows="3" placeholder="Any notes about the trip..."></textarea>
@@ -733,6 +761,7 @@
         </div>
     </div>
     
+    <!-- JavaScript -->
     <script src="app.js"></script>
 </body>
 </html>
